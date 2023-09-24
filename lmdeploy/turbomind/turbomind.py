@@ -17,7 +17,8 @@ from lmdeploy.model import MODELS
 from lmdeploy.utils import get_logger
 
 # TODO: find another way import _turbomind
-lmdeploy_dir = osp.split(lmdeploy.__file__)[0]
+# lmdeploy_dir = osp.split(lmdeploy.__file__)[0]
+lmdeploy_dir = "/data/yocto_bak/lmdeploy2/lmdeploy/build"
 sys.path.append(osp.join(lmdeploy_dir, 'lib'))
 import _turbomind as _tm  # noqa: E402
 
@@ -95,6 +96,9 @@ class TurboMind:
                 section_name = 'turbomind'
             elif 'llama' in parser:
                 section_name = 'llama'
+            # StarCoder
+            elif 'star_coder' in parser:
+                section_name = 'star_coder'
 
             if len(section_name) > 0:
                 tp_cfg = parser.getint(section_name, 'tensor_para_size')
@@ -115,7 +119,7 @@ class TurboMind:
 
         # create model
         weight_dir = osp.join(model_path, 'triton_models', 'weights')
-        model = _tm.AbstractTransformerModel.create_llama_model(
+        model = _tm.AbstractTransformerModel.create_star_coder_model(
             weight_dir, tensor_para_size=self.gpu_count, data_type=data_type)
         self.model = model
         self.nccl_params = model.create_nccl_params(self.node_id)

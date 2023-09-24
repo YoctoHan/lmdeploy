@@ -14,7 +14,8 @@ endif()
 
 pybind11_add_module(${PROJECT_NAME} bind.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE TransformerTritonBackend
-    LlamaTritonBackend)
+    LlamaTritonBackend StarCoderTritonBackend)
+    
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

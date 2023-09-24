@@ -55,7 +55,7 @@ class BaseModel:
 
     @abstractmethod
     def decorate_prompt(self, prompt, sequence_start):
-        return prompt
+        pass
 
     @staticmethod
     def _translate_messages(messages: List):
@@ -169,7 +169,6 @@ class Vicuna(BaseModel):
         return ret
 
 
-@MODELS.register_module(name='internlm-chat')
 @MODELS.register_module(name='internlm-chat-7b')
 class InternLMChat7B(BaseModel):
     """Chat template of InternLM model."""
@@ -177,7 +176,7 @@ class InternLMChat7B(BaseModel):
     def __init__(self,
                  system='',
                  user='<|User|>',
-                 eoh='',
+                 eoh='<eoh>',
                  eoa='<eoa>',
                  assistant='<|Bot|>',
                  **kwargs):
@@ -224,7 +223,7 @@ class InternLMChat7B(BaseModel):
         for user, assistant in zip(users, assistants):
             if assistant:
                 ret += f'{self.user}:{user}{self.eoh}\n{self.assistant}:' \
-                       f'{assistant}{self.eoa}\n'
+                       f'{assistant}{self.eoa}'
             else:
                 ret += f'{self.user}:{user}{self.eoh}\n{self.assistant}:'
         return ret
@@ -232,33 +231,19 @@ class InternLMChat7B(BaseModel):
     @property
     def stop_words(self):
         """Return the stop-words' token ids."""
-        return [103028]
+        return [103027, 103028]
 
 
-@MODELS.register_module(name='internlm-chat-20b')
 @MODELS.register_module(name='internlm-chat-7b-8k')
 class InternLMChat7B8K(InternLMChat7B):
-    """Chat template and generation parameters of InternLM-Chat-7B-8K and
-    InternLM-Chat-20B models."""
 
     def __init__(self, session_len=8192, **kwargs):
         super(InternLMChat7B8K, self).__init__(**kwargs)
         self.session_len = session_len
 
 
-@MODELS.register_module(name='internlm-20b')
-class InternLMBaseModel20B(BaseModel):
-    """Generation parameters of InternLM-20B-Base model."""
-
-    def __init__(self, session_len=4096, capability='completion', **kwargs):
-        super().__init__(session_len=session_len,
-                         capability=capability,
-                         **kwargs)
-
-
 @MODELS.register_module(name='baichuan-7b')
 class Baichuan7B(BaseModel):
-    """Generation parameters of Baichuan-7B base model."""
 
     def __init__(self, repetition_penalty=1.1, **kwargs):
         super().__init__(**kwargs)
@@ -267,8 +252,6 @@ class Baichuan7B(BaseModel):
 
 @MODELS.register_module(name='baichuan2-7b')
 class Baichuan2_7B(BaseModel):
-    """Chat template and generation parameters of Baichuan2-7B-Base and
-    Baichuan2-7B-Chat models."""
 
     def __init__(self,
                  temperature=0.3,
@@ -580,6 +563,76 @@ class CodeLlama(Llama2):
             f'codellama message2prompt only supports chat mode ' \
             f'but got {self.cap} mode'
         return super().messages2prompt(messages, sequence_start)
+
+# 添加新模型StarCoder
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+@MODELS.register_module(name='star_coder')
+class StarCoder(BaseModel):
+    """Chat template of StarCoder model."""
+
+    def __init__(
+            self,
+            b_inst='[INST]',
+            e_inst='[/INST]',
+            b_sys='<<SYS>>\n',
+            e_sys='\n<</SYS>>\n\n',
+            system="""\
+You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
+
+If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.""",  # noqa: E501
+            session_len=4096,
+            **kwargs):
+        super().__init__(**kwargs)
+        self.b_inst = b_inst
+        self.e_inst = e_inst
+        self.b_sys = b_sys
+        self.e_sys = e_sys
+        self.default_sys_prompt = system
+        self.session_len = session_len
+
+    def decorate_prompt(self, prompt, sequence_start=True):
+        """Return the prompt that is concatenated with other elements in the
+        chat template.
+
+        Args:
+            prompt (str): user's input prompt
+            sequence_start (bool): indicator for the first round chat of a
+               session sequence
+        Returns:
+            str: the concatenated prompt
+        """
+        assert self.capability == 'chat', \
+            f'{type(self).__name__} has no capability of {self.capability}'
+        if sequence_start:
+            return f'<BOS>{self.b_inst} ' \
+                   f'{self.b_sys} {self.default_sys_prompt} {self.e_sys}' \
+                   f'{prompt} {self.e_inst} '
+
+        return f'{self.b_inst} {prompt} {self.e_inst} '
+
+    def messages2prompt(self, messages, sequence_start=True):
+        """Return the prompt that is concatenated with other elements in the
+        chat template.
+
+        Args:
+            messages (str | List): user's input prompt
+        Returns:
+            str: the concatenated prompt
+        """
+        if isinstance(messages, str):
+            return self.get_prompt(messages, sequence_start)
+        system, users, assistants = self._translate_messages(messages)
+        system = self.default_sys_prompt if not system else system
+        ret = f'<BOS>{self.b_inst} {self.b_sys} {system} {self.e_sys}'
+        for i, (user, assistant) in enumerate(zip(users, assistants)):
+            if i != 0:
+                ret += f'{self.b_inst} '
+            if assistant:
+                ret += f'{user} {self.e_inst} {assistant}'
+            else:
+                ret += f'{user} {self.e_inst} '
+        return ret
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 
 def main(model_name: str = 'test'):

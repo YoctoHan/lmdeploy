@@ -1,6 +1,7 @@
 #include "src/turbomind/kernels/gemm_s_f16/format.h"
 #include "src/turbomind/python/dlpack.h"
 #include "src/turbomind/triton_backend/llama/LlamaTritonModel.h"
+#include "src/turbomind/triton_backend/star_coder/StarCoderTritonModel.h"
 #include "src/turbomind/triton_backend/transformer_triton_backend.hpp"
 #include "src/turbomind/utils/cuda_utils.h"
 #include "src/turbomind/utils/nccl_utils.h"
@@ -370,6 +371,42 @@ PYBIND11_MODULE(_turbomind, m)
             "pipeline_para_size"_a       = 1,
             "enable_custom_all_reduce"_a = 0,
             "data_type"_a                = "half")
+// 在AbstractTransformerModel类中新加入了create_star_coder_model方法，在此将接口暴露给python
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+        .def_static(
+            "create_star_coder_model",
+            [](std::string model_dir,
+               size_t      tensor_para_size,
+               size_t      pipeline_para_size,
+               int         enable_custom_all_reduce,
+               std::string data_type) -> std::shared_ptr<AbstractTransformerModel> {
+                auto gil_control = [state = PyGILState_STATE{}](int op) mutable {
+                    if (op) {
+                        state = PyGILState_Ensure();
+                    }
+                    else {
+                        PyGILState_Release(state);
+                    }
+                };
+                if (data_type == "half" || data_type == "fp16" || data_type == "int4") {
+                    auto model = std::make_shared<StarCoderTritonModel<half>>(
+                        tensor_para_size, pipeline_para_size, enable_custom_all_reduce, model_dir);
+                    model->setFfiLock(gil_control);
+                    return model;
+                }
+                else {
+                    auto model = std::make_shared<StarCoderTritonModel<float>>(
+                        tensor_para_size, pipeline_para_size, enable_custom_all_reduce, model_dir);
+                    model->setFfiLock(gil_control);
+                    return model;
+                }
+            },
+            "model_dir"_a,
+            "tensor_para_size"_a         = 1,
+            "pipeline_para_size"_a       = 1,
+            "enable_custom_all_reduce"_a = 0,
+            "data_type"_a                = "half")
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
         .def("create_nccl_params",
              &AbstractTransformerModel::createNcclParams,
              "node_id"_a,

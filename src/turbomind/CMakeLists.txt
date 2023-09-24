@@ -19,7 +19,10 @@ add_subdirectory(models)
 if(BUILD_PYT)
     add_subdirectory(th_op)
 endif()
+
 if(BUILD_PY_FFI)
     add_subdirectory(python)
 endif()
+# add_subdirectory(python)
+
 add_subdirectory(triton_backend)

@@ -77,4 +77,27 @@ struct LlamaFfnWeight {
     LlamaDenseWeight<T> fused_gating_intermediate;
 };
 
+template<typename T>
+struct StarCoderDenseWeight {
+    size_t     input_dims;
+    size_t     output_dims;
+    void*      kernel;
+    WeightType type;
+    T*         bias;
+    T*         scales_and_zeros;
+    int        group_size;
+};
+
+template<typename T>
+struct StarCoderAttentionWeight {
+    StarCoderDenseWeight<T> qkv;
+    std::vector<float>  past_kv_scale;
+};
+
+template<typename T>
+struct StarCoderFfnWeight {
+    StarCoderDenseWeight<T> dense_h_to_4h;
+    StarCoderDenseWeight<T> dense_4h_to_h;
+};
+
 }  // namespace turbomind

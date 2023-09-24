@@ -32,7 +32,8 @@ find_package(CUDA 10.2 REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
-option(BUILD_PYT "Build in PyTorch TorchScript class mode" OFF)
+# option(BUILD_PYT "Build in PyTorch TorchScript class mode" OFF)
+option(BUILD_PYT "Build in PyTorch TorchScript class mode" ON)
 if(NOT BUILD_MULTI_GPU)
   option(BUILD_MULTI_GPU "Build project about multi-GPU" OFF)
 endif()
@@ -315,6 +316,8 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:flash_attention2>
   $<TARGET_OBJECTS:Llama>
   $<TARGET_OBJECTS:LlamaTritonBackend>
+  $<TARGET_OBJECTS:StarCoder>
+  $<TARGET_OBJECTS:StarCoderTritonBackend>
   $<TARGET_OBJECTS:gemm_s4_f16>
   $<TARGET_OBJECTS:TopKSamplingLayer>
   $<TARGET_OBJECTS:TopPSamplingLayer>

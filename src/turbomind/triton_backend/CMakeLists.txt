@@ -34,6 +34,7 @@ set_property(TARGET TransformerTritonBackend PROPERTY POSITION_INDEPENDENT_CODE 
 install(TARGETS TransformerTritonBackend DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_subdirectory(llama)
+add_subdirectory(star_coder)
 
 # Needn't build triton backend on windows
 if (MSVC)
