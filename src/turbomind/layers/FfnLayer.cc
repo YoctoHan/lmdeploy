@@ -562,8 +562,8 @@ void FfnLayer<T>::genericActivation(int          m,
         case ActivationType::Gelu:
         case ActivationType::GeGLU:
             if (inter_buf_2_ == nullptr && int8_mode_ <= 1) {
-                invokeAddBiasGeluV2(
-                    inter_buf_, bias1, ia3_tasks, ia3_weights, padding_offset, seq_len, m, inter_size_, stream_);
+                // invokeAddBiasGeluV2(
+                //     inter_buf_, bias1, ia3_tasks, ia3_weights, padding_offset, seq_len, m, inter_size_, stream_);
             }
             else {
                 INVOKE_GENERIC_ACT(GeluActivation);

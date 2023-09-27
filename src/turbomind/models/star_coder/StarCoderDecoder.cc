@@ -61,7 +61,7 @@ StarCoderDecoder<T>::~StarCoderDecoder()
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     delete self_attention_layer_;
-    delete silu_ffn_layer_;
+    delete gelu_ffn_layer_;
 }
 
 template<typename T>
@@ -80,10 +80,9 @@ void StarCoderDecoder<T>::initialize(const StarCoderAttentionParams& attn_params
                                                                   is_free_buffer_after_forward_,
                                                                   quant_policy);
 
-    silu_ffn_layer_ = new StarCoderFfnLayer<T>(head_num_,
+    gelu_ffn_layer_ = new GeluFfnLayer<T>(head_num_,
                                            size_per_head_,
                                            inter_size_,
-                                           tensor_para_,
                                            stream_,
                                            cublas_wrapper_,
                                            allocator_,
@@ -143,7 +142,7 @@ void StarCoderDecoder<T>::forwardFfn(const StarCoderDecoder::Session& sess, T* f
 {
     TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.batch_size, hidden_units_}, ffn_io}}};
     TensorMap ffn_outputs{{"ffn_output", {MEMORY_GPU, data_type_, {sess.batch_size, hidden_units_}, ffn_io}}};
-    silu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &sess.weights->at(layer)->ffn_weights);
+    gelu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &sess.weights->at(layer)->ffn_weights);
 }
 
 template<typename T>

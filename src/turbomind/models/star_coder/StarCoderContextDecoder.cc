@@ -20,6 +20,7 @@
 
 #include "src/turbomind/models/star_coder/StarCoderContextDecoder.h"
 #include "src/turbomind/kernels/bert_preprocess_kernels.h"
+#include "src/turbomind/kernels/layernorm_kernels.h"
 #include "src/turbomind/kernels/gpt_kernels.h"
 #include "src/turbomind/macro.h"
 #include "src/turbomind/models/star_coder/StarCoderContextDecoder.h"
@@ -62,40 +63,38 @@ void StarCoderContextDecoder<T>::freeBuffer()
 
 template<typename T>
 void StarCoderContextDecoder<T>::initialize(const StarCoderAttentionParams& attn_params,
-                                        size_t                      kv_head_num,
-                                        bool                        use_fmha,
-                                        int                         quant_policy)
+                                            size_t                          kv_head_num,
+                                            bool                            use_fmha,
+                                            int                             quant_policy)
 {
     h_pinned_token_num_ptr_ = (size_t*)allocator_->reMalloc(h_pinned_token_num_ptr_, sizeof(size_t), true, true);
 
     context_attention_layer_ = new StarCoderContextAttentionLayer<T>(head_num_,
-                                                                 kv_head_num,
-                                                                 size_per_head_,
-                                                                 attn_params,
-                                                                 tensor_para_,
-                                                                 stream_,
-                                                                 cublas_wrapper_,
-                                                                 allocator_,
-                                                                 is_free_buffer_after_forward_,
-                                                                 use_fmha,
-                                                                 quant_policy);
-
-    silu_ffn_layer_ = new StarCoderFfnLayer<T>(head_num_,
-                                           size_per_head_,
-                                           inter_size_,
-                                           tensor_para_,
-                                           stream_,
-                                           cublas_wrapper_,
-                                           allocator_,
-                                           is_free_buffer_after_forward_);
+                                                                     kv_head_num,
+                                                                     size_per_head_,
+                                                                     attn_params,
+                                                                     tensor_para_,
+                                                                     stream_,
+                                                                     cublas_wrapper_,
+                                                                     allocator_,
+                                                                     is_free_buffer_after_forward_,
+                                                                     use_fmha,
+                                                                     quant_policy);
+    gelu_ffn_layer_ = new GeluFfnLayer<T>(head_num_,
+                                          size_per_head_,
+                                          inter_size_,
+                                          stream_,
+                                          cublas_wrapper_,
+                                          allocator_,
+                                          is_free_buffer_after_forward_);
 }
 
 template<typename T>
 void StarCoderContextDecoder<T>::forwardSelfAttn(const Session&                                 sess,
-                                             T*                                             attn_io,
-                                             const std::unordered_map<std::string, Tensor>* input_tensors,
-                                             int                                            layer,
-                                             bool                                           is_final)
+                                                 T*                                             attn_io,
+                                                 const std::unordered_map<std::string, Tensor>* input_tensors,
+                                                 int                                            layer,
+                                                 bool                                           is_final)
 {
     // TM_LOG_ERROR(__PRETTY_FUNCTION__);
     TensorMap self_attention_input_tensors{
@@ -126,20 +125,20 @@ void StarCoderContextDecoder<T>::forwardSelfAttn(const Session&                 
 }
 
 template<typename T>
-StarCoderContextDecoder<T>::StarCoderContextDecoder(size_t                      head_num,
-                                            size_t                      kv_head_num,
-                                            size_t                      size_per_head,
-                                            size_t                      inter_size,
-                                            size_t                      num_layer,
-                                            const StarCoderAttentionParams& attn_params,
-                                            float                       rmsnorm_eps,
-                                            NcclParam                   tensor_para,
-                                            cudaStream_t                stream,
-                                            cublasMMWrapper*            cublas_wrapper,
-                                            IAllocator*                 allocator,
-                                            bool                        is_free_buffer_after_forward,
-                                            bool                        use_fmha,
-                                            int                         quant_policy):
+StarCoderContextDecoder<T>::StarCoderContextDecoder(size_t                          head_num,
+                                                    size_t                          kv_head_num,
+                                                    size_t                          size_per_head,
+                                                    size_t                          inter_size,
+                                                    size_t                          num_layer,
+                                                    const StarCoderAttentionParams& attn_params,
+                                                    float                           rmsnorm_eps,
+                                                    NcclParam                       tensor_para,
+                                                    cudaStream_t                    stream,
+                                                    cublasMMWrapper*                cublas_wrapper,
+                                                    IAllocator*                     allocator,
+                                                    bool                            is_free_buffer_after_forward,
+                                                    bool                            use_fmha,
+                                                    int                             quant_policy):
     BaseLayer(stream, cublas_wrapper, allocator, is_free_buffer_after_forward),
     head_num_(head_num),
     size_per_head_(size_per_head),
@@ -157,7 +156,7 @@ template<typename T>
 StarCoderContextDecoder<T>::~StarCoderContextDecoder()
 {
     delete context_attention_layer_;
-    delete silu_ffn_layer_;
+    delete gelu_ffn_layer_;
     freeBuffer();
 }
 
@@ -246,7 +245,6 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
 
     /////////////////////////////////////////////
     /// RMSNorm
-    // 这个layerNorm是不是需要呢？
     // invokeRootMeanSquareNorm(decoder_output,
     //                          decoder_input_output,
     //                          decoder_layer_weights->at(0)->pre_self_attn_norm_weights,
@@ -257,9 +255,37 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
     // sync_check_cuda_error();
 
     for (size_t layer = 0; layer < num_layer_; ++layer) {
+        invokeGeneralLayerNorm(decoder_output,
+                               decoder_input_output,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_weights,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_bias,
+                               1e-05,
+                               sess.token_num,
+                               hidden_units_,
+                               nullptr,
+                               nullptr,
+                               0,
+                               stream_);
+        sync_check_cuda_error();
+
+
         /////////////////////////////////////////////
         /// self-attention
         forwardSelfAttn(sess, decoder_output, input_tensors, layer, false);
+        
+        invokeGeneralLayerNorm(decoder_output,
+                               decoder_input_output,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_weights,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_bias,
+                               1e-05,
+                               sess.token_num,
+                               hidden_units_,
+                               nullptr,
+                               nullptr,
+                               0,
+                               stream_);
+        sync_check_cuda_error();
+
 
     //     invokeFusedAddBiasResidualRMSNorm(decoder_input_output,
     //                                       decoder_output,
@@ -271,12 +297,12 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
     //                                       stream_);
     //     sync_check_cuda_error();
 
-    //     ////////////////////////////////////////////
-    //     /// feed-forward network
-    //     TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
-    //     TensorMap ffn_outputs{
-    //         {"ffn_output", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
-    //     silu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &decoder_layer_weights->at(layer)->ffn_weights);
+        ////////////////////////////////////////////
+        /// feed-forward network
+        TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
+        TensorMap ffn_outputs{
+            {"ffn_output", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
+        gelu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &decoder_layer_weights->at(layer)->ffn_weights);
 
     //     auto scale_weight = layer < num_layer_ - 1 ? decoder_layer_weights->at(layer + 1)->self_attn_norm_weights :
     //                                                  input_tensors->at("output_norm_weight").getPtr<T>();

@@ -91,6 +91,7 @@ struct StarCoderDenseWeight {
 template<typename T>
 struct StarCoderAttentionWeight {
     StarCoderDenseWeight<T> qkv;
+    StarCoderDenseWeight<T> output;
     std::vector<float>  past_kv_scale;
 };
 

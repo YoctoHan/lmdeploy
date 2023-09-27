@@ -239,7 +239,7 @@ inline void StarCoderContextAttentionLayer<T>::forward(TensorMap*               
 
     //////////////////////////////////////////////
     /// output gemm <Bs,HD> -> <Bs,HD>
-    linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
+    // linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
 
     if (tensor_para_.world_size_ > 1) {
         NcclGuard nccl_guard(tensor_para_, stream_);

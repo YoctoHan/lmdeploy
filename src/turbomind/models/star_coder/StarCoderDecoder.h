@@ -47,7 +47,7 @@ protected:
     NcclParam tensor_para_;
 
     StarCoderDecoderSelfAttentionLayer<T>* self_attention_layer_{};
-    StarCoderFfnLayer<T>*                  silu_ffn_layer_{};
+    StarCoderFfnLayer<T>*                  gelu_ffn_layer_{};
 
     const DataType data_type_;
 

@@ -1063,9 +1063,9 @@ def main():
             to 4 bits
     """
     model_name = "star_coder"
-    model_path = "/data3/StarCoderBase"
+    model_path = "/data9/ningwei/aix2_base/"
     model_format = "star_coder"
-    tokenizer_path = "/data3/StarCoderBase/aixTokenizer"
+    tokenizer_path = "/data9/ningwei/aix2_base/aixTokenizer"
     dst_path = "./star_coder_workspace"
     tp = 1
     quant_path = None

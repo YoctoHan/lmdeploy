@@ -58,7 +58,7 @@ protected:
     size_t* h_pinned_token_num_ptr_{};
 
     StarCoderContextAttentionLayer<T>* context_attention_layer_{};
-    StarCoderFfnLayer<T>*              silu_ffn_layer_{};
+    StarCoderFfnLayer<T>*              gelu_ffn_layer_{};
 
     const DataType data_type_;
 

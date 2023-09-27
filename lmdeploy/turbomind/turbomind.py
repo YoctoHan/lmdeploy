@@ -18,7 +18,7 @@ from lmdeploy.utils import get_logger
 
 # TODO: find another way import _turbomind
 # lmdeploy_dir = osp.split(lmdeploy.__file__)[0]
-lmdeploy_dir = "/data/yocto_bak/lmdeploy2/lmdeploy/build"
+lmdeploy_dir = "/data9/hanyu/lmdeploy/build"
 sys.path.append(osp.join(lmdeploy_dir, 'lib'))
 import _turbomind as _tm  # noqa: E402
 

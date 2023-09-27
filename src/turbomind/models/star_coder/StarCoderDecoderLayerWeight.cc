@@ -51,6 +51,11 @@ StarCoderDecoderLayerWeight<T>::StarCoderDecoderLayerWeight(size_t     head_num,
     self_attn_weights.qkv.type        = weight_type;
     self_attn_weights.qkv.group_size  = group_size;
 
+    self_attn_weights.output.input_dims  = hidden_units_ / tensor_para_size_;
+    self_attn_weights.output.output_dims = hidden_units_;
+    self_attn_weights.output.type        = weight_type;
+    self_attn_weights.output.group_size  = group_size;
+
     ffn_weights.dense_h_to_4h.input_dims  = hidden_units_;
     ffn_weights.dense_h_to_4h.output_dims = hidden_units_ * 4;
     ffn_weights.dense_h_to_4h.type        = weight_type;
@@ -217,7 +222,7 @@ void StarCoderDecoderLayerWeight<T>::mallocWeights()
     deviceMalloc((T**)&post_self_attn_norm_bias, hidden_units_);
 
     turbomind::mallocWeights(self_attn_weights.qkv, attn_bias_);
-
+    turbomind::mallocWeights(self_attn_weights.output, attn_bias_);
 
     turbomind::mallocWeights(ffn_weights.dense_h_to_4h, true);
     turbomind::mallocWeights(ffn_weights.dense_4h_to_h, true);
@@ -232,6 +237,7 @@ StarCoderDecoderLayerWeight<T>::~StarCoderDecoderLayerWeight()
     cudaFree((void*)post_self_attn_norm_bias);
 
     freeWeights(self_attn_weights.qkv);
+    freeWeights(self_attn_weights.output);
 
     freeWeights(ffn_weights.dense_h_to_4h);
     freeWeights(ffn_weights.dense_4h_to_h);
@@ -270,6 +276,13 @@ void StarCoderDecoderLayerWeight<T>::loadModel(std::string dir_path, FtCudaDataT
                 tensor_para_size_,
                 1,
                 {head_num_ * size_per_head_, kv_head_num_ * size_per_head_, kv_head_num_ * size_per_head_});
+
+    loadWeights(self_attn_weights.output,
+                dir_path + ".attention.dense", 
+                tensor_para_rank_, 
+                type, 
+                tensor_para_size_, 
+                0);
 
     loadWeights(ffn_weights.dense_h_to_4h, 
                 dir_path + ".mlp.dense_h_to_4h", 

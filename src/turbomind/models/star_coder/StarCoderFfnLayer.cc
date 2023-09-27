@@ -1,6 +1,5 @@
 /*
- * Copyright (c) OpenMMLab. All rights reserved.
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,107 +14,220 @@
  * limitations under the License.
  */
 
-// Modified from https://github.com/NVIDIA/FasterTransformer/blob/main/src/turbomind/layers/FfnLayer.h
-
 #include "src/turbomind/models/star_coder/StarCoderFfnLayer.h"
-#include "src/turbomind/kernels/activation_kernels.h"
-#include "src/turbomind/models/llama/LlamaNcclGuard.h"
-#include "src/turbomind/utils/nvtx_utils.h"
-// #include <glog/logging.h>
 
 namespace turbomind {
 
 template<typename T>
+void StarCoderFfnLayer<T>::forward(TensorMap* output_tensors,
+                          const TensorMap* input_tensors,
+                          const StarCoderFfnWeight<T>* ffn_weights)
+{
+    // input tensors:
+    //      ffn_input [token_num, hidden_dimension],
+
+    // output tensors:
+    //      ffn_output [token_num, hidden_dimension],
+
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+    FT_CHECK(input_tensors->size() == 1);
+    FT_CHECK(output_tensors->size() == 1);
+    // FT_CHECK(isValidTokenNum(input_tensors->at(0).shape[0]));
+    allocateBuffer(input_tensors->at("ffn_input").shape[0]);
+
+    const int m = input_tensors->at("ffn_input").shape[0];
+    T* output_tensor = (T*)output_tensors->at("ffn_output").data;
+    const T* input_tensor = (const T*)input_tensors->at("ffn_input").data;
+
+    // invokeMixWeightGemm(
+    //     ffn_weights->intermediate_weight,
+    //     weights_buf_,
+    //     input_tensor,
+    //     inter_buf_,
+    //     inter_size_,
+    //     m,
+    //     hidden_units_,
+    //     cublas_wrapper_,
+    //     stream_
+    // );
+
+    // 需要确认配参
+    // CUBLAS_WRAPPER->Gemm(CUBLAS_OP_N,
+    //                      CUBLAS_OP_N,
+    //                      N_SIZE,
+    //                      M_SIZE,
+    //                      K_SIZE,
+    //                      ffn_weights.kernel,
+    //                      N_SIZE,
+    //                      input_tensor,
+    //                      K_SIZE,
+    //                      OUTPUT_TENSOR,
+    //                      N_SIZE);
+
+    // invokeAddBiasActivation(m, ffn_weights->intermediate_weight.bias);
+    // sync_check_cuda_error();
+
+    // invokeMixWeightGemm(
+    //     ffn_weights->output_weight,
+    //     weights_buf_,
+    //     inter_buf_,
+    //     output_tensor,
+    //     hidden_units_,
+    //     m,
+    //     inter_size_,
+    //     cublas_wrapper_,
+    //     stream_
+    // );
+
+    // 需要确认配参
+    // CUBLAS_WRAPPER->Gemm(CUBLAS_OP_N,
+    //                      CUBLAS_OP_N,
+    //                      N_SIZE,
+    //                      M_SIZE,
+    //                      K_SIZE,
+    //                      ffn_weights.kernel,
+    //                      N_SIZE,
+    //                      INPUT_TENSOR,
+    //                      K_SIZE,
+    //                      OUTPUT_TENSOR,
+    //                      N_SIZE);
+
+    sync_check_cuda_error();
+    if (is_free_buffer_after_forward_ == true) {
+        freeBuffer();
+    }
+    sync_check_cuda_error();
+}
+
+template<typename T>
+StarCoderFfnLayer<T>::StarCoderFfnLayer(size_t head_num,
+                                        size_t size_per_head,
+                                        size_t inter_size,
+                                        cudaStream_t stream,
+                                        cublasMMWrapper* cublas_wrapper,
+                                        IAllocator* allocator,
+                                        bool is_free_buffer_after_forward,
+                                        bool sparse,
+                                        int int8_mode):
+    BaseLayer(stream, cublas_wrapper, allocator, is_free_buffer_after_forward, nullptr, sparse),
+    head_num_(head_num),
+    size_per_head_(size_per_head),
+    hidden_units_(head_num * size_per_head),
+    inter_size_(inter_size),
+    int8_mode_(int8_mode)
+{
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+}
+
+template<typename T>
+StarCoderFfnLayer<T>::StarCoderFfnLayer(StarCoderFfnLayer<T> const& ffn_layer):
+    BaseLayer(ffn_layer.stream_,
+              ffn_layer.cublas_wrapper_,
+              ffn_layer.allocator_,
+              ffn_layer.is_free_buffer_after_forward_,
+              ffn_layer.cuda_device_prop_,
+              ffn_layer.sparse_),
+    max_token_num_(ffn_layer.max_token_num_),
+    head_num_(ffn_layer.head_num_),
+    size_per_head_(ffn_layer.size_per_head_),
+    hidden_units_(ffn_layer.hidden_units_),
+    inter_size_(ffn_layer.inter_size_),
+    int8_mode_(ffn_layer.int8_mode_)
+{
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+}
+
+template<typename T>
+StarCoderFfnLayer<T>::~StarCoderFfnLayer()
+{
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+    cublas_wrapper_ = nullptr;
+    freeBuffer();
+}
+
+template<typename T>
+void StarCoderFfnLayer<T>::allocateBuffer()
+{
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+    if (is_allocate_buffer_ == false) {
+        inter_buf_ = (T*)allocator_->malloc(sizeof(T) * max_token_num_ * inter_size_, false);
+        weights_buf_ = (T*)allocator_->malloc(sizeof(T) * inter_size_ * hidden_units_, false);
+        is_allocate_buffer_ = true;
+    }
+}
+
+template<typename T>
 void StarCoderFfnLayer<T>::allocateBuffer(size_t token_num)
 {
-    inter_buf_          = (T*)allocator_->reMalloc(inter_buf_, sizeof(T) * token_num * inter_size_, false);
-    gating_buf_         = (T*)allocator_->reMalloc(gating_buf_, sizeof(T) * token_num * inter_size_, false);
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
+    inter_buf_ = (T*)allocator_->reMalloc(inter_buf_, sizeof(T) * token_num * inter_size_, false);
+    weights_buf_ = (T*)allocator_->reMalloc(weights_buf_, sizeof(T) * inter_size_ * hidden_units_, false);
     is_allocate_buffer_ = true;
 }
 
 template<typename T>
 void StarCoderFfnLayer<T>::freeBuffer()
 {
+    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     if (is_allocate_buffer_) {
-        allocator_->free((void**)&inter_buf_);
-        allocator_->free((void**)&gating_buf_);
+        allocator_->free((void**)(&inter_buf_));
+        allocator_->free((void**)(&weights_buf_));
         is_allocate_buffer_ = false;
     }
 }
 
 template<typename T>
-void StarCoderFfnLayer<T>::activation(int num_token)
+bool StarCoderFfnLayer<T>::isValidTokenNum(size_t token_num)
 {
-    invokeGenericActivation<SiluActivation>(gating_buf_,
-                                            (const T*)nullptr,  // bias
-                                            inter_buf_,
-                                            (const T*)nullptr,  // gated_bias
-                                            nullptr,            // ia3_tasks
-                                            (const T*)nullptr,  // ia3_weights
-                                            num_token,          // m
-                                            inter_size_,        // n
-                                            0,                  // int8_mode
-                                            nullptr,            // activation_in
-                                            nullptr,            // activation_out
-                                            nullptr,            // padding_offset
-                                            0,                  // seq_len
-                                            stream_);
-    sync_check_cuda_error();
-}
-
-template<typename T>
-void StarCoderFfnLayer<T>::forward(TensorMap*               output_tensors,
-                               const TensorMap*         input_tensors,
-                               const StarCoderFfnWeight<T>* weights)
-{
-    // /**
-    //  * input_tensors:
-    //  *   \param ffn_input [token_num, hidden_dimension]
-    //  *
-    //  * output_tensors:
-    //  *   \param ffn_output [token_num, hidden_dimension]
-    //  */
-
-    // const size_t num_token = input_tensors->at("ffn_input").shape[0];
-    // // LOG(WARNING);
-
-    // allocateBuffer(num_token);
-
-    // const T* ffn_input_data  = input_tensors->at("ffn_input").getPtr<T>();
-    // T*       ffn_output_data = output_tensors->at("ffn_output").getPtr<T>();
-
-    // PUSH_RANGE("ffn");
-
-    // if (weights->fused_gating_intermediate.kernel) {
-    //     linear_.forward(
-    //         gating_buf_, ffn_input_data, num_token, weights->fused_gating_intermediate, StarCoderLinear<T>::kFusedSiluFfn);
-    // }
-    // else {
-    //     // w1(x)
-    //     linear_.forward(gating_buf_, ffn_input_data, num_token, weights->gating);
-    //     // w3(x)
-    //     linear_.forward(inter_buf_, ffn_input_data, num_token, weights->intermediate);
-    //     // silu(w1(x)) * w3(x)
-    //     activation(num_token);
-    // }
-
-    // // w2(x)
-    // linear_.forward(ffn_output_data, gating_buf_, num_token, weights->output);
-    // POP_RANGE;
-
-    // if (tensor_para_.world_size_ > 1) {
-    //     NcclGuard nccl_guard(tensor_para_, stream_);
-    //     ftNcclAllReduceSum(ffn_output_data, ffn_output_data, num_token * hidden_units_, tensor_para_, stream_);
-    //     sync_check_cuda_error();
-    // }
-
-    // if (is_free_buffer_after_forward_) {
-    //     freeBuffer();
-    // }
-    // // LOG(WARNING);
+    if (max_token_num_ < token_num) {
+        max_token_num_ = token_num;
+    }
+    return true;
 }
 
 template class StarCoderFfnLayer<float>;
 template class StarCoderFfnLayer<half>;
+#ifdef ENABLE_BF16
+template class StarCoderFfnLayer<__nv_bfloat16>;
+#endif
+
+template<typename T>
+GeluFfnLayer<T>::GeluFfnLayer(size_t head_num,
+                              size_t size_per_head,
+                              size_t inter_size,
+                              cudaStream_t stream,
+                              cublasMMWrapper* cublas_wrapper,
+                              IAllocator* allocator,
+                              bool is_free_buffer_after_forward,
+                              bool sparse,
+                              int int8_mode):
+    StarCoderFfnLayer<T>(head_num,
+                         size_per_head,
+                         inter_size,
+                         stream,
+                         cublas_wrapper,
+                         allocator,
+                         is_free_buffer_after_forward,
+                         sparse,
+                         int8_mode)
+{
+}
+
+template<typename T>
+GeluFfnLayer<T>::GeluFfnLayer(GeluFfnLayer<T> const& gelu_ffn_layer): StarCoderFfnLayer<T>(gelu_ffn_layer)
+{
+}
+
+template<typename T>
+void GeluFfnLayer<T>::invokeAddBiasActivation(const int m, const T* bias)
+{
+    // invokeAddBiasGeluV2<T>(inter_buf_, bias, nullptr, nullptr, m, inter_size_, stream_);
+}
+
+template class GeluFfnLayer<float>;
+template class GeluFfnLayer<half>;
+#ifdef ENABLE_BF16
+template class GeluFfnLayer<__nv_bfloat16>;
+#endif
 
 }  // namespace turbomind

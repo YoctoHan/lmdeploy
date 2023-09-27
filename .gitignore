@@ -52,6 +52,7 @@ examples/cpp/llama/*.csv
 
 # LMDeploy
 workspace/
+star_coder_workspace/
 work_dir*/
 
 # Huggingface

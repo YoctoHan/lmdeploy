@@ -92,7 +92,7 @@ def main():
     tp = 1
     stream_output = True
     
-    tokenizer = GPTTokenizer(vocab_dir="/data3/StarCoderBase/")
+    tokenizer = GPTTokenizer(vocab_dir="/data9/ningwei/aix2_base/")
     tm_model = tm.TurboMind(model_path, eos_id = 0, tp=tp)
     generator = tm_model.create_instance()
 

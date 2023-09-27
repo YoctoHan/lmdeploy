@@ -1,6 +1,5 @@
 /*
- * Copyright (c) OpenMMLab. All rights reserved.
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,71 +14,120 @@
  * limitations under the License.
  */
 
-// Modified from https://github.com/NVIDIA/FasterTransformer/blob/main/src/turbomind/layers/FfnLayer.cc
-
 #pragma once
 
-// #include "src/turbomind/layers/FfnLayer.h"
+#include "src/turbomind/kernels/activation_kernels.h"
+// #include "src/turbomind/kernels/matrix_vector_multiplication.h"
 #include "src/turbomind/models/star_coder/StarCoderDecoderLayerWeight.h"
-#include "src/turbomind/models/star_coder/StarCoderLinear.h"
-#include "src/turbomind/utils/custom_ar_comm.h"
-#include "src/turbomind/utils/nccl_utils.h"
-#include <functional>
+#include "src/turbomind/layers/BaseLayer.h"
+// #include "src/turbomind/layers/FfnWeight.h"
+#include "src/turbomind/utils/memory_utils.h"
+#include <vector>
 
 namespace turbomind {
 
+enum ActivationType {
+    Gelu,
+    Relu
+};
+
 template<typename T>
-class StarCoderFfnLayer {
-public:
-    StarCoderFfnLayer(size_t           head_num,
-                  size_t           size_per_head,
-                  size_t           inter_size,
-                  NcclParam        tensor_para,
-                  cudaStream_t     stream,
-                  cublasMMWrapper* cublas_wrapper,
-                  IAllocator*      allocator,
-                  bool             is_free_buffer_after_forward):
-        head_num_(head_num),
-        size_per_head_(size_per_head),
-        inter_size_(inter_size / tensor_para.world_size_),
-        hidden_units_(head_num * size_per_head),
-        stream_(stream),
-        linear_(cublas_wrapper, stream),
-        allocator_(allocator),
-        tensor_para_(tensor_para),
-        is_free_buffer_after_forward_(is_free_buffer_after_forward)
-    {
-    }
-
-    ~StarCoderFfnLayer()
-    {
-        freeBuffer();
-    }
-
-    void forward(TensorMap* output_tensors, const TensorMap* input_tensors, const StarCoderFfnWeight<T>* weights);
-
+class StarCoderFfnLayer: public BaseLayer {
 private:
+    // buffer handling
+    size_t max_token_num_ = 0;
+
+    // meta data
+    size_t head_num_;
+    size_t size_per_head_;
+
+    // int8_mode_ == 1 for weight quantized only gemm for GPT
+    int int8_mode_ = 0;
+
+    // calculated data
+    size_t hidden_units_;
+
+    void allocateBuffer() override;
+    void freeBuffer() override;
+    bool isValidTokenNum(size_t token_num);
     void allocateBuffer(size_t token_num);
 
-    void freeBuffer();
+protected:
+    T* inter_buf_ = nullptr;
+    T* weights_buf_ = nullptr;
+    size_t inter_size_;
+    virtual void invokeAddBiasActivation(const int m, const T* bias) = 0;
 
-    void activation(int num_token);
+public:
+    StarCoderFfnLayer(size_t head_num,
+                      size_t size_per_head,
+                      size_t inter_size,
+                      cudaStream_t stream,
+                      cublasMMWrapper* cublas_wrapper,
+                      IAllocator* allocator,
+                      bool is_free_buffer_after_forward,
+                      bool sparse = false,
+                      int int8_mode = 0);
 
-    size_t         head_num_;
-    size_t         size_per_head_;
-    size_t         inter_size_;
-    size_t         hidden_units_;
-    cudaStream_t   stream_;
-    StarCoderLinear<T> linear_;
-    IAllocator*    allocator_;
-    bool           is_free_buffer_after_forward_;
+    StarCoderFfnLayer(StarCoderFfnLayer<T> const& ffn_layer);
 
-    T* gating_buf_{};
-    T* inter_buf_{};
+    virtual ~StarCoderFfnLayer();
 
-    NcclParam tensor_para_;
+    virtual void forward(TensorMap* output_tensors,
+                         const TensorMap* input_tensors,
+                         const StarCoderFfnWeight<T>* ffn_weights);
+};
 
-    bool is_allocate_buffer_{};
+template<typename T>
+class GeluFfnLayer: public StarCoderFfnLayer<T> {
+public:
+    GeluFfnLayer(size_t head_num,
+                 size_t size_per_head,
+                 size_t inter_size,   
+                 cudaStream_t stream,
+                 cublasMMWrapper* cublas_wrapper,
+                 IAllocator* allocator,
+                 bool is_free_buffer_after_forward,
+                 bool sparse = false,
+                 int int8_mode = 0);
+
+    GeluFfnLayer(GeluFfnLayer<T> const& ffn_layer);
+
+    virtual ~GeluFfnLayer() = default;
+
+protected:
+    using StarCoderFfnLayer<T>::stream_;
+
+private:
+    using StarCoderFfnLayer<T>::inter_buf_;
+    using StarCoderFfnLayer<T>::inter_size_;
+    void invokeAddBiasActivation(const int m, const T* bias) override;
+};
+
+template<typename T>
+class FastGeluFfnLayer: public StarCoderFfnLayer<T> {
+public:
+    FastGeluFfnLayer(size_t head_num,
+                     size_t size_per_head,
+                     size_t inter_size,
+                     cudaStream_t stream,
+                     cublasMMWrapper* cublas_wrapper,
+                     IAllocator* allocator,
+                     bool is_free_buffer_after_forward,
+                     bool sparse = false,
+                     int int8_mode = 0);
+
+    FastGeluFfnLayer(FastGeluFfnLayer<T> const& ffn_layer);
+
+    virtual ~FastGeluFfnLayer() = default;
+
+protected:
+    using StarCoderFfnLayer<T>::stream_;
+
+private:
+    using StarCoderFfnLayer<T>::inter_buf_;
+    using StarCoderFfnLayer<T>::inter_size_;
+    void invokeAddBiasActivation(const int m, const T* bias) override;
 };
 
 }  // namespace turbomind
