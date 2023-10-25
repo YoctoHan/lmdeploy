@@ -908,24 +908,81 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
     Vec_t q_bias, k_bias, v_bias;
 
     // load Q and apply bias
+    // if (!is_masked) {
+    //     q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
+    //     if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
+    //         half* h_ptr = reinterpret_cast<half*>(&q);
+    //         float h1 = __half2float(h_ptr[0]);
+    //         float h2 = __half2float(h_ptr[1]);
+
+    //         printf("q1: %f, q2: %f\n", h1, h2);
+    //     }
+    //     if (qkv_bias) {
+    //         q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
+    //         if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
+    //             half* h_ptr = reinterpret_cast<half*>(&q_bias);
+    //             float h1 = __half2float(h_ptr[0]);
+    //             float h2 = __half2float(h_ptr[1]);
+
+    //             printf("q_bias1: %f, q_bias2: %f\n", h1, h2);
+    //         }
+    //         q      = mmha::add(q, q_bias);
+    //         if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
+    //             half* h_ptr = reinterpret_cast<half*>(&q);
+    //             float h1 = __half2float(h_ptr[0]);
+    //             float h2 = __half2float(h_ptr[1]);
+
+    //             printf("q1: %f, q2: %f\n", h1, h2);
+    //         }
+    //     }
+    // }
     if (!is_masked) {
-        q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
+        // q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
+        float q_0, q_1;
+        q_0 = QKV[src_q_idx];
+        q_1 = QKV[src_q_idx + 1];
+        __half results[2];
         if (qkv_bias) {
-            q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
-            q      = mmha::add(q, q_bias);
+            // q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
+            float bias_0, bias_1;
+            bias_0 = qkv_bias[hidden_idx];
+            bias_1 = qkv_bias[hidden_idx + 1];
+            // q      = mmha::add(q, q_bias);
+            results[0] = __float2half(q_0 + bias_0);
+            results[1] = __float2half(q_1 + bias_1); 
+            q =  *reinterpret_cast<const Vec_t*>(&results[0]);
         }
     }
 
     // load KV and apply bias
     if (!is_masked && head_idx < kv_head_num) {
-        k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
-        v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
+        // k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
+        // v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
+        float x_0, x_1, bias_0, bias_1;
+        __half results[2];
+        x_0 = QKV[src_k_idx];
+        x_1 = QKV[src_k_idx + 1];
         if (qkv_bias) {
-            k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
-            v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
-            k      = mmha::add(k, k_bias);
-            v      = mmha::add(v, v_bias);
+            // k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
+            // v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
+            bias_0 = qkv_bias[hidden_idx + k_offset];
+            bias_1 = qkv_bias[hidden_idx + k_offset + 1];
+            // k      = mmha::add(k, k_bias);
+            // v      = mmha::add(v, v_bias);
+            results[0] = __float2half(x_0 + bias_0);
+            results[1] = __float2half(x_1 + bias_1); 
+            k =  *reinterpret_cast<const Vec_t*>(&results[0]);
         }
+        x_0 = QKV[src_v_idx];
+        x_1 = QKV[src_v_idx + 1];
+        if (qkv_bias) {
+            bias_0 = qkv_bias[hidden_idx + v_offset];
+            bias_1 = qkv_bias[hidden_idx + v_offset + 1];
+            results[0] = __float2half(x_0 + bias_0);
+            results[1] = __float2half(x_1 + bias_1); 
+            v =  *reinterpret_cast<const Vec_t*>(&results[0]);
+        }
+
     }
 
     const int history_len = history_length[batch_idx];
@@ -938,7 +995,7 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
     }
 
     // TODO: unused computation on k if GQA is used
-    mmha::apply_rotary_embedding(q, k, tidx, rotary_embedding_dim, rotary_embedding_base, timestep);
+    // mmha::apply_rotary_embedding(q, k, tidx, rotary_embedding_dim, rotary_embedding_base, timestep);
 
     if (use_logn_attn) {
         // +1 to convert to context length at the timestep
@@ -1021,6 +1078,7 @@ void invokeAddFusedQKVBiasTranspose(T*           q_buf,
     // To implement rotary embeddings, each thread processes two QKV elems:
     dim3   block((size_per_head / Vec_t<T>::size + 31) / 32 * 32);
     dim3   grid(token_num, head_num);
+
     size_t smem_size = 0;
     FUSED_QKV_BIAS_TRANSPOSE_LAUNCH(T, false);
 }

@@ -18,6 +18,9 @@ void invokeRootMeanSquareNorm(T* out, const T* input, const T* scale, float eps,
 template<typename T>
 void invokeAddResidual(T* out, const T* in, int m, int n, cudaStream_t stream);
 
+template<typename T>
+void invokeAddBias(T* out, const T* in, int m, int n, cudaStream_t stream);
+
 void invokeFixInputIds(int*         ids,
                        const int*   input_ids,
                        const int*   input_lengths,

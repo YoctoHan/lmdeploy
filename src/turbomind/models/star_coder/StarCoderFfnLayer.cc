@@ -37,62 +37,15 @@ void StarCoderFfnLayer<T>::forward(TensorMap* output_tensors,
 
     const int m = input_tensors->at("ffn_input").shape[0];
     T* output_tensor = (T*)output_tensors->at("ffn_output").data;
-    const T* input_tensor = (const T*)input_tensors->at("ffn_input").data;
+    T* input_tensor = (T*)input_tensors->at("ffn_input").data;
 
-    // invokeMixWeightGemm(
-    //     ffn_weights->intermediate_weight,
-    //     weights_buf_,
-    //     input_tensor,
-    //     inter_buf_,
-    //     inter_size_,
-    //     m,
-    //     hidden_units_,
-    //     cublas_wrapper_,
-    //     stream_
-    // );
+    linear_.forward(input_buf_, input_tensor, m, ffn_weights->dense_h_to_4h);
 
-    // 需要确认配参
-    // CUBLAS_WRAPPER->Gemm(CUBLAS_OP_N,
-    //                      CUBLAS_OP_N,
-    //                      N_SIZE,
-    //                      M_SIZE,
-    //                      K_SIZE,
-    //                      ffn_weights.kernel,
-    //                      N_SIZE,
-    //                      input_tensor,
-    //                      K_SIZE,
-    //                      OUTPUT_TENSOR,
-    //                      N_SIZE);
-
-    // invokeAddBiasActivation(m, ffn_weights->intermediate_weight.bias);
-    // sync_check_cuda_error();
-
-    // invokeMixWeightGemm(
-    //     ffn_weights->output_weight,
-    //     weights_buf_,
-    //     inter_buf_,
-    //     output_tensor,
-    //     hidden_units_,
-    //     m,
-    //     inter_size_,
-    //     cublas_wrapper_,
-    //     stream_
-    // );
-
-    // 需要确认配参
-    // CUBLAS_WRAPPER->Gemm(CUBLAS_OP_N,
-    //                      CUBLAS_OP_N,
-    //                      N_SIZE,
-    //                      M_SIZE,
-    //                      K_SIZE,
-    //                      ffn_weights.kernel,
-    //                      N_SIZE,
-    //                      INPUT_TENSOR,
-    //                      K_SIZE,
-    //                      OUTPUT_TENSOR,
-    //                      N_SIZE);
-
+    invokeAddBiasActivation(m, ffn_weights->dense_h_to_4h.bias);
     sync_check_cuda_error();
+    
+    linear_.forward(output_tensor, input_buf_, m, ffn_weights->dense_4h_to_h);
+
     if (is_free_buffer_after_forward_ == true) {
         freeBuffer();
     }
@@ -114,25 +67,8 @@ StarCoderFfnLayer<T>::StarCoderFfnLayer(size_t head_num,
     size_per_head_(size_per_head),
     hidden_units_(head_num * size_per_head),
     inter_size_(inter_size),
-    int8_mode_(int8_mode)
-{
-    TM_LOG_DEBUG(__PRETTY_FUNCTION__);
-}
-
-template<typename T>
-StarCoderFfnLayer<T>::StarCoderFfnLayer(StarCoderFfnLayer<T> const& ffn_layer):
-    BaseLayer(ffn_layer.stream_,
-              ffn_layer.cublas_wrapper_,
-              ffn_layer.allocator_,
-              ffn_layer.is_free_buffer_after_forward_,
-              ffn_layer.cuda_device_prop_,
-              ffn_layer.sparse_),
-    max_token_num_(ffn_layer.max_token_num_),
-    head_num_(ffn_layer.head_num_),
-    size_per_head_(ffn_layer.size_per_head_),
-    hidden_units_(ffn_layer.hidden_units_),
-    inter_size_(ffn_layer.inter_size_),
-    int8_mode_(ffn_layer.int8_mode_)
+    int8_mode_(int8_mode),
+    linear_(cublas_wrapper, stream)
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
 }
@@ -150,7 +86,7 @@ void StarCoderFfnLayer<T>::allocateBuffer()
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     if (is_allocate_buffer_ == false) {
-        inter_buf_ = (T*)allocator_->malloc(sizeof(T) * max_token_num_ * inter_size_, false);
+        input_buf_ = (T*)allocator_->malloc(sizeof(T) * max_token_num_ * inter_size_, false);
         weights_buf_ = (T*)allocator_->malloc(sizeof(T) * inter_size_ * hidden_units_, false);
         is_allocate_buffer_ = true;
     }
@@ -160,8 +96,8 @@ template<typename T>
 void StarCoderFfnLayer<T>::allocateBuffer(size_t token_num)
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
-    inter_buf_ = (T*)allocator_->reMalloc(inter_buf_, sizeof(T) * token_num * inter_size_, false);
-    weights_buf_ = (T*)allocator_->reMalloc(weights_buf_, sizeof(T) * inter_size_ * hidden_units_, false);
+    input_buf_ = (T*)allocator_->reMalloc(input_buf_, sizeof(T) * token_num * hidden_units_ * 4, false);
+    weights_buf_ = (T*)allocator_->reMalloc(weights_buf_, sizeof(T) * hidden_units_ * hidden_units_ * 4, false);
     is_allocate_buffer_ = true;
 }
 
@@ -170,7 +106,7 @@ void StarCoderFfnLayer<T>::freeBuffer()
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     if (is_allocate_buffer_) {
-        allocator_->free((void**)(&inter_buf_));
+        allocator_->free((void**)(&input_buf_));
         allocator_->free((void**)(&weights_buf_));
         is_allocate_buffer_ = false;
     }
@@ -214,14 +150,9 @@ GeluFfnLayer<T>::GeluFfnLayer(size_t head_num,
 }
 
 template<typename T>
-GeluFfnLayer<T>::GeluFfnLayer(GeluFfnLayer<T> const& gelu_ffn_layer): StarCoderFfnLayer<T>(gelu_ffn_layer)
-{
-}
-
-template<typename T>
 void GeluFfnLayer<T>::invokeAddBiasActivation(const int m, const T* bias)
 {
-    // invokeAddBiasGeluV2<T>(inter_buf_, bias, nullptr, nullptr, m, inter_size_, stream_);
+    invokeAddBiasGeluV2<T>(input_buf_, bias, nullptr, nullptr, nullptr, m, m, 6144 * 4, stream_);
 }
 
 template class GeluFfnLayer<float>;

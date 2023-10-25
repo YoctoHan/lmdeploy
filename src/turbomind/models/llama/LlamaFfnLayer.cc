@@ -46,21 +46,21 @@ void LlamaFfnLayer<T>::freeBuffer()
 template<typename T>
 void LlamaFfnLayer<T>::activation(int num_token)
 {
-    invokeGenericActivation<SiluActivation>(gating_buf_,
-                                            (const T*)nullptr,  // bias
-                                            inter_buf_,
-                                            (const T*)nullptr,  // gated_bias
-                                            nullptr,            // ia3_tasks
-                                            (const T*)nullptr,  // ia3_weights
-                                            num_token,          // m
-                                            inter_size_,        // n
-                                            0,                  // int8_mode
-                                            nullptr,            // activation_in
-                                            nullptr,            // activation_out
-                                            nullptr,            // padding_offset
-                                            0,                  // seq_len
-                                            stream_);
-    sync_check_cuda_error();
+    // invokeGenericActivation<SiluActivation>(gating_buf_,
+    //                                         (const T*)nullptr,  // bias
+    //                                         inter_buf_,
+    //                                         (const T*)nullptr,  // gated_bias
+    //                                         nullptr,            // ia3_tasks
+    //                                         (const T*)nullptr,  // ia3_weights
+    //                                         num_token,          // m
+    //                                         inter_size_,        // n
+    //                                         0,                  // int8_mode
+    //                                         nullptr,            // activation_in
+    //                                         nullptr,            // activation_out
+    //                                         nullptr,            // padding_offset
+    //                                         0,                  // seq_len
+    //                                         stream_);
+    // sync_check_cuda_error();
 }
 
 template<typename T>

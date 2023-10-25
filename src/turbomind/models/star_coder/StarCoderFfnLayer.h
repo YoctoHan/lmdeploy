@@ -17,6 +17,7 @@
 #pragma once
 
 #include "src/turbomind/kernels/activation_kernels.h"
+#include "src/turbomind/models/star_coder/StarCoderLinear.h"
 // #include "src/turbomind/kernels/matrix_vector_multiplication.h"
 #include "src/turbomind/models/star_coder/StarCoderDecoderLayerWeight.h"
 #include "src/turbomind/layers/BaseLayer.h"
@@ -51,9 +52,11 @@ private:
     void freeBuffer() override;
     bool isValidTokenNum(size_t token_num);
     void allocateBuffer(size_t token_num);
+    
+    StarCoderLinear<T>   linear_;
 
 protected:
-    T* inter_buf_ = nullptr;
+    T* input_buf_ = nullptr;
     T* weights_buf_ = nullptr;
     size_t inter_size_;
     virtual void invokeAddBiasActivation(const int m, const T* bias) = 0;
@@ -68,8 +71,6 @@ public:
                       bool is_free_buffer_after_forward,
                       bool sparse = false,
                       int int8_mode = 0);
-
-    StarCoderFfnLayer(StarCoderFfnLayer<T> const& ffn_layer);
 
     virtual ~StarCoderFfnLayer();
 
@@ -91,16 +92,13 @@ public:
                  bool sparse = false,
                  int int8_mode = 0);
 
-    GeluFfnLayer(GeluFfnLayer<T> const& ffn_layer);
-
     virtual ~GeluFfnLayer() = default;
 
 protected:
     using StarCoderFfnLayer<T>::stream_;
 
 private:
-    using StarCoderFfnLayer<T>::inter_buf_;
-    using StarCoderFfnLayer<T>::inter_size_;
+    using StarCoderFfnLayer<T>::input_buf_;
     void invokeAddBiasActivation(const int m, const T* bias) override;
 };
 
@@ -117,16 +115,13 @@ public:
                      bool sparse = false,
                      int int8_mode = 0);
 
-    FastGeluFfnLayer(FastGeluFfnLayer<T> const& ffn_layer);
-
     virtual ~FastGeluFfnLayer() = default;
 
 protected:
     using StarCoderFfnLayer<T>::stream_;
 
 private:
-    using StarCoderFfnLayer<T>::inter_buf_;
-    using StarCoderFfnLayer<T>::inter_size_;
+    using StarCoderFfnLayer<T>::input_buf_;
     void invokeAddBiasActivation(const int m, const T* bias) override;
 };
 

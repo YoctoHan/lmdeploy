@@ -161,17 +161,21 @@ StarCoderContextDecoder<T>::~StarCoderContextDecoder()
 }
 
 template<typename T>
-void StarCoderContextDecoder<T>::forward(std::vector<Tensor>*                            output_tensors,
-                                     const std::vector<Tensor>*                      input_tensors,
-                                     const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights)
+void StarCoderContextDecoder<T>::forward(std::vector<Tensor>*                                output_tensors,
+                                         const std::vector<Tensor>*                          input_tensors,
+                                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                                         const T**                                            final_layernorm_weight,
+                                         const T**                                            final_layernorm_bias)
 {
     FT_CHECK(false);
 }
 
 template<typename T>
-void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*        output_tensors,
-                                         const std::unordered_map<std::string, Tensor>*  input_tensors,
-                                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights)
+void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*            output_tensors,
+                                         const std::unordered_map<std::string, Tensor>*      input_tensors,
+                                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                                         const T**                                            final_layernorm_weight,
+                                         const T**                                            final_layernorm_bias)
 {
     /**
      * input tensors:
@@ -191,8 +195,8 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
      *   \param last_token_hidden_units [batch_size, hidden_units]
      */
 
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoderContextDecoder<T>::forward *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");  
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoderContextDecoder<T>::forward *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");  
 
     Session sess{};
 
@@ -212,13 +216,13 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
     sess.k_cache = &output_tensors->at("key_cache");
     sess.v_cache = &output_tensors->at("value_cache");
 
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- Paramer check *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
-    printf("sess.token_num : %d \n", int(sess.token_num));
-    printf("sess.batch_size : %d \n", int(sess.batch_size));
-    printf("sess.max_query_len : %d \n", int(sess.max_query_len));
-    printf("sess.max_key_len : %d \n", int(sess.max_key_len));
-    printf("sess.token_num : %d \n", int(sess.token_num));
-    printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- Paramer check *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+    // printf("sess.token_num : %d \n", int(sess.token_num));
+    // printf("sess.batch_size : %d \n", int(sess.batch_size));
+    // printf("sess.max_query_len : %d \n", int(sess.max_query_len));
+    // printf("sess.max_key_len : %d \n", int(sess.max_key_len));
+    // printf("sess.token_num : %d \n", int(sess.token_num));
+    // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
 
     allocateBuffer(sess.batch_size, sess.token_num, sess.max_query_len, sess.max_key_len);
 
@@ -243,17 +247,6 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
                             stream_);
     sync_check_cuda_error();
 
-    /////////////////////////////////////////////
-    /// RMSNorm
-    // invokeRootMeanSquareNorm(decoder_output,
-    //                          decoder_input_output,
-    //                          decoder_layer_weights->at(0)->pre_self_attn_norm_weights,
-    //                          rmsnorm_eps_,
-    //                          sess.token_num,
-    //                          hidden_units_,
-    //                          stream_);
-    // sync_check_cuda_error();
-
     for (size_t layer = 0; layer < num_layer_; ++layer) {
         invokeGeneralLayerNorm(decoder_output,
                                decoder_input_output,
@@ -268,15 +261,16 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
                                stream_);
         sync_check_cuda_error();
 
-
         /////////////////////////////////////////////
         /// self-attention
         forwardSelfAttn(sess, decoder_output, input_tensors, layer, false);
-        
-        invokeGeneralLayerNorm(decoder_output,
-                               decoder_input_output,
-                               decoder_layer_weights->at(layer)->pre_self_attn_norm_weights,
-                               decoder_layer_weights->at(layer)->pre_self_attn_norm_bias,
+        invokeAddResidual(decoder_output, decoder_input_output, sess.token_num, hidden_units_, stream_);
+        sync_check_cuda_error();
+
+        invokeGeneralLayerNorm(decoder_input_output,
+                               decoder_output,
+                               decoder_layer_weights->at(layer)->post_self_attn_norm_weights,
+                               decoder_layer_weights->at(layer)->post_self_attn_norm_bias,
                                1e-05,
                                sess.token_num,
                                hidden_units_,
@@ -286,36 +280,32 @@ void StarCoderContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>
                                stream_);
         sync_check_cuda_error();
 
-
-    //     invokeFusedAddBiasResidualRMSNorm(decoder_input_output,
-    //                                       decoder_output,
-    //                                       decoder_layer_weights->at(layer)->pre_self_attn_norm_weights.bias,
-    //                                       decoder_layer_weights->at(layer)->ffn_norm_weights,
-    //                                       rmsnorm_eps_,
-    //                                       sess.token_num,
-    //                                       hidden_units_,
-    //                                       stream_);
-    //     sync_check_cuda_error();
-
         ////////////////////////////////////////////
         /// feed-forward network
-        TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
+        TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_input_output}}};
         TensorMap ffn_outputs{
-            {"ffn_output", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_output}}};
+            {"ffn_output", {MEMORY_GPU, data_type_, {sess.token_num, hidden_units_}, decoder_input_output}}};
         gelu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &decoder_layer_weights->at(layer)->ffn_weights);
 
-    //     auto scale_weight = layer < num_layer_ - 1 ? decoder_layer_weights->at(layer + 1)->self_attn_norm_weights :
-    //                                                  input_tensors->at("output_norm_weight").getPtr<T>();
-    //     invokeFusedAddBiasResidualRMSNorm(decoder_input_output,  //
-    //                                       decoder_output,
-    //                                       decoder_layer_weights->at(layer)->ffn_weights.output.bias,
-    //                                       scale_weight,
-    //                                       rmsnorm_eps_,
-    //                                       sess.token_num,
-    //                                       hidden_units_,
-    //                                       stream_);
-    //     sync_check_cuda_error();
+        invokeAddBias(decoder_input_output, decoder_layer_weights->at(layer)->ffn_weights.dense_4h_to_h.bias, sess.token_num, hidden_units_, stream_);
+        sync_check_cuda_error();
+        
+        invokeAddResidual(decoder_input_output, decoder_output, sess.token_num, hidden_units_, stream_);
+        sync_check_cuda_error();
     }
+
+    invokeGeneralLayerNorm(decoder_output,
+                           decoder_input_output,
+                           *final_layernorm_weight,
+                           *final_layernorm_bias,
+                           1e-05,
+                           sess.token_num,
+                           hidden_units_,
+                           nullptr,
+                           nullptr,
+                           0,
+                           stream_);
+    sync_check_cuda_error();
 
     if (is_free_buffer_after_forward_) {
         freeBuffer();

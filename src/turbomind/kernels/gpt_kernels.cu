@@ -80,6 +80,25 @@ __global__ void start_id_embedding_position_lookups_kernel(T*                   
         const int col_index       = index % hidden_units;
         const int input_id        = input_ids == nullptr ? real_word_index : input_ids[real_word_index];
         const int prompt_id       = input_id - prompt_param.p_prompt_tuning_id_start;
+
+        // if (index == 0) {
+        //     printf("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
+        //     printf("\n start_step = %d", start_step);
+        //     printf("\n length = %d", length);
+        //     printf("\n max_length = %d", max_length);
+        //     printf("\n batch_size = %d", batch_size);
+        //     printf("\n hidden_units = %d", hidden_units);
+
+        //     printf("\n word_index = %d", word_index);
+        //     printf("\n word_index_row = %d", word_index_row);
+        //     printf("\n word_inword_index_coldex = %d", word_index_col);
+        //     printf("\n real_word_index = %d", real_word_index);
+        //     printf("\n step = %d", step);
+        //     printf("\n col_index = %d", col_index);
+        //     printf("\n input_id = %d", input_id);
+        //     printf("\n prompt_id = %d", prompt_id);
+        //     printf("\n-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
+        // }
         T         embedding       = (T)0.0f;
         if (PROMPT_SRC > 0 && prompt_id >= 0) {
             if (PROMPT_SRC == 1) {
@@ -97,8 +116,14 @@ __global__ void start_id_embedding_position_lookups_kernel(T*                   
         }
         else {
             embedding = embedding_table[input_id * hidden_units + col_index];
+            // if (index == 0) {
+            //     printf("\n embedding = %.4f\n", __half2float((half)embedding));
+            // }
         }
-        T pos_embed        = pos_table == nullptr ? (T)0.f : pos_table[(step - 1) * hidden_units + col_index];
+        T pos_embed        =  pos_table == nullptr ? (T)0.f : pos_table[(step - 1) * hidden_units + col_index];
+        // if (index == 0) {
+        //     printf("\n pos_embed = %.4f\n", __half2float((half)pos_embed));
+        // }
         from_tensor[index] = embedding + pos_embed;
     }
 }

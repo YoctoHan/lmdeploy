@@ -10,7 +10,7 @@ from lmdeploy import turbomind as tm
 from lmdeploy.model import MODELS
 from lmdeploy.turbomind.tokenizer import Tokenizer, GPTTokenizer
 
-os.environ['TM_LOG_LEVEL'] = 'ERROR'
+os.environ['TM_LOG_LEVEL'] = 'INFO'
 
 
 @dataclasses.dataclass
@@ -92,7 +92,7 @@ def main():
     tp = 1
     stream_output = True
     
-    tokenizer = GPTTokenizer(vocab_dir="/data9/ningwei/aix2_base/")
+    tokenizer = GPTTokenizer(vocab_dir="/data3/StarCoderBase/")
     tm_model = tm.TurboMind(model_path, eos_id = 0, tp=tp)
     generator = tm_model.create_instance()
 
@@ -106,7 +106,8 @@ def main():
 
     print(f'session {session_id}')
     while True:
-        prompt = input_prompt(model_name)
+        # prompt = input_prompt(model_name)
+        prompt = ''
         if prompt == 'exit':
             exit(0)
         elif prompt == 'end':
@@ -123,7 +124,14 @@ def main():
             step = 0
             seed = random.getrandbits(64)
         else:
-            prompt = model.get_prompt(prompt, nth_round)
+            # prompt = model.get_prompt(prompt, nth_round)
+            prompt = """import torch
+import os
+import re
+import json
+import numpy as np
+import pathlib 
+import """
             input_ids = tokenizer.encode(prompt)
             if step + len(input_ids) >= tm_model.session_len:
                 print('WARNING: exceed session max length.'
@@ -134,6 +142,7 @@ def main():
                                       step)
 
             print(f'{prompt} ', end='', flush=True)
+            print()
             response_size = 0
             for outputs in generator.stream_infer(
                     session_id=session_id,
@@ -144,7 +153,7 @@ def main():
                     random_seed=seed if nth_round == 1 else None):
                 res, tokens = outputs[0]
                 # decode res
-                import pdb;pdb.set_trace()
+                # import pdb;pdb.set_trace()
                 response = tokenizer.decode(res.tolist(), offset=response_size)
                 response = valid_str(response)
                 print(f'{response}', end='', flush=True)

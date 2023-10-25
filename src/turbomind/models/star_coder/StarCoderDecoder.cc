@@ -20,6 +20,7 @@
 // https://github.com/NVIDIA/FasterTransformer/blob/main/src/turbomind/models/multi_gpu_gpt/ParallelGptDecoder.cc
 
 #include "src/turbomind/models/star_coder/StarCoderDecoder.h"
+#include "src/turbomind/kernels/layernorm_kernels.h"
 #include "src/turbomind/macro.h"
 #include "src/turbomind/models/star_coder/star_coder_decoder_kernels.h"
 #include "src/turbomind/models/llama/llama_kernels.h"
@@ -148,7 +149,9 @@ void StarCoderDecoder<T>::forwardFfn(const StarCoderDecoder::Session& sess, T* f
 template<typename T>
 void StarCoderDecoder<T>::forward(std::vector<Tensor>*                            output_tensors,
                               const std::vector<Tensor>*                      input_tensors,
-                              const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights)
+                              const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                            const T**                                            final_layernorm_weight,
+                            const T**                                            final_layernorm_bias)
 {
     FT_CHECK(false);
 }
@@ -156,7 +159,9 @@ void StarCoderDecoder<T>::forward(std::vector<Tensor>*                          
 template<typename T>
 void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*        output_tensors,
                               const std::unordered_map<std::string, Tensor>*  input_tensors,
-                              const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights)
+                              const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                            const T**                                            final_layernorm_weight,
+                            const T**                                            final_layernorm_bias)
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     /**
@@ -182,7 +187,8 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
     Session sess{};
     sess.batch_size = input_tensors->at("decoder_input").shape[0];
     sess.weights    = decoder_layer_weights;
-
+    printf("\n\n batch_size : %d  \n\n", sess.batch_size);
+    exit(0);
     allocateBuffer(sess.batch_size);
 
     sess.ite     = input_tensors->at("ite").getVal<const int>();
@@ -194,46 +200,64 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
     T* decoder_input  = input_tensors->at("decoder_input").getPtr<T>();
     T* decoder_output = output_tensors->at("decoder_output").getPtr<T>();
 
-    ////////////////////////////////////////////
-    /// RMSNorm
-    // invokeRootMeanSquareNorm(decoder_output,
-    //                          decoder_input,
-    //                          decoder_layer_weights->at(0)->self_attn_norm_weights,
-    //                          rmsnorm_eps_,
-    //                          sess.batch_size,
-    //                          hidden_units_,
-    //                          stream_);
-    sync_check_cuda_error();
 
     for (size_t layer = 0; layer < num_layer_; ++layer) {
-        // output: self_attn_output_, k_cache, v_cache = self_attn(decoder_normed_input_)
-        forwardSelfAttn(sess, decoder_output, input_tensors, layer);
-
-        // invokeFusedAddBiasResidualRMSNorm(decoder_input,
-        //                                   decoder_output,
-        //                                   decoder_layer_weights->at(layer)->self_attn_weights.output.bias,
-        //                                   decoder_layer_weights->at(layer)->ffn_norm_weights,
-        //                                   rmsnorm_eps_,
-        //                                   sess.batch_size,
-        //                                   hidden_units_,
-        //                                   stream_);
+        invokeGeneralLayerNorm(decoder_output,
+                               decoder_input,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_weights,
+                               decoder_layer_weights->at(layer)->pre_self_attn_norm_bias,
+                               1e-05,
+                               sess.batch_size,
+                               hidden_units_,
+                               nullptr,
+                               nullptr,
+                               0,
+                               stream_);
         sync_check_cuda_error();
 
-        // decoder_layer_output_ = ffn(decoder_normed_input_)
-        forwardFfn(sess, decoder_output, layer);
+        forwardSelfAttn(sess, decoder_output, input_tensors, layer);
+        invokeAddResidual(decoder_output, decoder_input, sess.batch_size, hidden_units_, stream_);
+        sync_check_cuda_error();
 
-        // auto scale_weight = layer < num_layer_ - 1 ? decoder_layer_weights->at(layer + 1)->self_attn_norm_weights :
-        //                                              input_tensors->at("output_norm_weight").getPtr<T>();
-        // invokeFusedAddBiasResidualRMSNorm(decoder_input,  //
-        //                                   decoder_output,
-        //                                   decoder_layer_weights->at(layer)->ffn_weights.output.bias,
-        //                                   scale_weight,
-        //                                   rmsnorm_eps_,
-        //                                   sess.batch_size,
-        //                                   hidden_units_,
-        //                                   stream_);
+        invokeGeneralLayerNorm(decoder_input,
+                               decoder_output,
+                               decoder_layer_weights->at(layer)->post_self_attn_norm_weights,
+                               decoder_layer_weights->at(layer)->post_self_attn_norm_bias,
+                               1e-05,
+                               sess.batch_size,
+                               hidden_units_,
+                               nullptr,
+                               nullptr,
+                               0,
+                               stream_);
+        sync_check_cuda_error();
+
+        ////////////////////////////////////////////
+        /// feed-forward network
+        TensorMap ffn_inputs{{"ffn_input", {MEMORY_GPU, data_type_, {sess.batch_size, hidden_units_}, decoder_input}}};
+        TensorMap ffn_outputs{
+            {"ffn_output", {MEMORY_GPU, data_type_, {sess.batch_size, hidden_units_}, decoder_input}}};
+        gelu_ffn_layer_->forward(&ffn_outputs, &ffn_inputs, &decoder_layer_weights->at(layer)->ffn_weights);
+
+        invokeAddBias(decoder_input, decoder_layer_weights->at(layer)->ffn_weights.dense_4h_to_h.bias, sess.batch_size, hidden_units_, stream_);
+        sync_check_cuda_error();
+        
+        invokeAddResidual(decoder_input, decoder_output, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
     }
+    
+    invokeGeneralLayerNorm(decoder_output,
+                           decoder_input,
+                           *final_layernorm_weight,
+                           *final_layernorm_bias,
+                           1e-05,
+                           sess.batch_size,
+                           hidden_units_,
+                           nullptr,
+                           nullptr,
+                           0,
+                           stream_);
+    sync_check_cuda_error();
 
     if (is_free_buffer_after_forward_) {
         freeBuffer();

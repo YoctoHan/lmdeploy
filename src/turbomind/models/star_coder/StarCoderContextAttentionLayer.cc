@@ -155,6 +155,7 @@ inline void StarCoderContextAttentionLayer<T>::forward(TensorMap*               
     //////////////////////////////////////////////
     /// qkv gemm
     // [token_num, hidden_dim] -> [token_num, 3, local_hidden_dim]
+
     linear_.forward(qkv_buf_, attention_input, num_token, weights->qkv);
 
     //////////////////////////////////////////////
@@ -207,7 +208,7 @@ inline void StarCoderContextAttentionLayer<T>::forward(TensorMap*               
                         stream_,
                         quant_policy_,
                         weights->past_kv_scale.data());
-
+    
     sync_check_cuda_error();
     if (use_fmha_) {
         fusedMultiHeadAttention(k_cache_ptrs,
@@ -236,10 +237,12 @@ inline void StarCoderContextAttentionLayer<T>::forward(TensorMap*               
                                   quant_policy_,
                                   weights->past_kv_scale.data());
     }
-
+    
     //////////////////////////////////////////////
     /// output gemm <Bs,HD> -> <Bs,HD>
-    // linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
+    linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
+    invokeAddBias(attention_out, weights->output.bias, num_token, hidden_units_, stream_);
+    sync_check_cuda_error();
 
     if (tensor_para_.world_size_ > 1) {
         NcclGuard nccl_guard(tensor_para_, stream_);

@@ -90,19 +90,6 @@ void mallocWeights(StarCoderDenseWeight<T>& weights, bool bias)
     const size_t bit_size = getBitSize(weights.type);
 
     deviceMalloc((T**)&weights.kernel, weights.input_dims * weights.output_dims);
-
-    // 量化部署时需要这一部分代码
-    // if (bit_size >= 16) {  // fp16, fp32
-    //     deviceMalloc((T**)&weights.kernel, weights.input_dims * weights.output_dims);
-    // }
-    // else {  // int8, int4
-    //     const int factor = sizeof(float) * 8 / bit_size;
-    //     FT_CHECK(weights.input_dims % factor == 0);
-    //     deviceMalloc((int**)&weights.kernel, weights.input_dims * weights.output_dims / factor);
-    //     deviceMemSetZero((int*)weights.kernel, weights.input_dims * weights.output_dims / factor);
-    //     // interleaved scales/zeros
-    //     deviceMalloc((T**)&weights.scales_and_zeros, weights.input_dims / weights.group_size * weights.output_dims * 2);
-    // }
 }
 
 template<typename T>
@@ -152,6 +139,7 @@ void loadWeights(StarCoderDenseWeight<T>& w,
     // else {
     //     prefix += "." + std::to_string(rank);
     // }
+
 
     if (w.bias) {
         std::vector<ConcateSlice> bias_slices{};
@@ -221,8 +209,8 @@ void StarCoderDecoderLayerWeight<T>::mallocWeights()
     deviceMalloc((T**)&post_self_attn_norm_weights, hidden_units_);
     deviceMalloc((T**)&post_self_attn_norm_bias, hidden_units_);
 
-    turbomind::mallocWeights(self_attn_weights.qkv, attn_bias_);
-    turbomind::mallocWeights(self_attn_weights.output, attn_bias_);
+    turbomind::mallocWeights(self_attn_weights.qkv, true);
+    turbomind::mallocWeights(self_attn_weights.output, true);
 
     turbomind::mallocWeights(ffn_weights.dense_h_to_4h, true);
     turbomind::mallocWeights(ffn_weights.dense_4h_to_h, true);
@@ -251,22 +239,22 @@ void StarCoderDecoderLayerWeight<T>::loadModel(std::string dir_path, FtCudaDataT
 
     loadWeightFromBin((T*)pre_self_attn_norm_weights, 
                       {hidden_units_}, 
-                      dir_path + ".attention_norm.weight", 
+                      dir_path + ".input_layernorm.weight", 
                       model_file_type);
 
     loadWeightFromBin((T*)pre_self_attn_norm_bias, 
                       {hidden_units_}, 
-                      dir_path + ".attention_norm.weight", 
+                      dir_path + ".input_layernorm.bias", 
                       model_file_type);
 
     loadWeightFromBin((T*)post_self_attn_norm_weights, 
                       {hidden_units_}, 
-                      dir_path + ".attention_norm.weight", 
+                      dir_path + ".post_attention_layernorm.weight", 
                       model_file_type);
 
     loadWeightFromBin((T*)post_self_attn_norm_bias, 
                       {hidden_units_}, 
-                      dir_path + ".attention_norm.weight", 
+                      dir_path + ".post_attention_layernorm.bias", 
                       model_file_type);
 
     loadWeights(self_attn_weights.qkv,

@@ -90,9 +90,9 @@ StarCoder<T>::StarCoder(size_t                           head_num,
     shared_state_(shared_state)
 
 {
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* StarCoder<T>::StarCoder *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
-    printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* StarCoder<T>::StarCoder *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
+    // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
 
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     TM_LOG_INFO("NCCL group_id = %d", tensor_para_.group_id_);
@@ -226,16 +226,13 @@ void StarCoder<T>::contextDecode(T*         deocder_output,
         TM_LOG_INFO("context decoding start");
     }
 
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* StarCoder<T>::contextDecode *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");  
-
     invokeInputIdsEmbeddingLookupPosEncoding(context_decoder_input_buf,
                                              nullptr,  // processed somewhere else
                                              weights_->pre_decoder_embedding_table,
                                              weights_->pre_decoder_position_embedding_table,
                                              pPromptTuningParam<T>{},
                                              input_ids,
-                                             0,  // only used for position encoding
+                                             1,  // only used for position encoding
                                              token_num,
                                              token_num,
                                              1,
@@ -243,18 +240,29 @@ void StarCoder<T>::contextDecode(T*         deocder_output,
                                              stream_);
     sync_check_cuda_error();
 
+    {
+        int num_element = token_num;
+        int* data_host = new int[num_element];
+        cudaD2Hcpy(data_host, input_ids, num_element);
+
+        for (int i = 0; i < num_element; i ++) {
+            if (i == num_element - 1) {   
+                printf("%6d", data_host[i]);
+                break;
+            }
+            printf("%6d, ", data_host[i]);
+        }
+        printf("\n");
+        delete[] data_host;
+    }
+    exit(0);
+
     const auto dtype = getTensorType<T>();
     const auto bsz   = batch_size;
 
     const int max_q_len   = max_input_len;
     const int max_kv_len  = max_context_len;
     const int max_seq_len = session_len;
-
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- Paramer check *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
-    printf("max_q_len : %d \n", int(max_q_len));    
-    printf("max_kv_len : %d \n", int(max_kv_len));    
-    printf("max_seq_len : %d \n", int(max_seq_len));    
-    printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
 
     std::unordered_map<std::string, Tensor> decoder_input_tensors{
         {"decoder_input", {MEMORY_GPU, dtype, {token_num, hidden_units_}, context_decoder_input_buf}},
@@ -273,12 +281,37 @@ void StarCoder<T>::contextDecode(T*         deocder_output,
         {"value_cache", {MEMORY_GPU, TYPE_UINT64, {bsz}, v_cache_ptr}},
         {"last_token_hidden_units", {MEMORY_GPU, dtype, {bsz, hidden_units_}, deocder_output}}};
 
-    context_decoder_->forward(&decoder_output_tensors, &decoder_input_tensors, &weights_->decoder_layer_weights);
+    context_decoder_->forward(&decoder_output_tensors, 
+                              &decoder_input_tensors, 
+                              &weights_->decoder_layer_weights,
+                              &weights_->output_norm_weight,
+                              &weights_->output_norm_bias);
+    
+    // {
+    //     int num_element = token_num * hidden_units_;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)context_decoder_output_buf, num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/matmul/lmdeploy_context_decoder_output.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    // exit(0);
 
     if (tensor_para_.rank_ == 0) {
         TM_LOG_INFO("context decoding end");
     }
 }
+
 
 template<typename T>
 void StarCoder<T>::decoderForward(T*         decoder_output,
@@ -318,7 +351,11 @@ void StarCoder<T>::decoderForward(T*         decoder_output,
         {"value_cache", {MEMORY_GPU, TYPE_UINT64, {batch_size}, v_cache_ptr}},
     };
 
-    decoder_->forward(&decoder_output_tensors, &decoder_input_tensors, &weights_->decoder_layer_weights);
+    decoder_->forward(&decoder_output_tensors,
+                      &decoder_input_tensors, 
+                      &weights_->decoder_layer_weights,
+                      &weights_->output_norm_weight,
+                      &weights_->output_norm_bias);
 }
 
 template<typename T>
@@ -537,9 +574,9 @@ void StarCoder<T>::forward(std::unordered_map<std::string, Tensor>*       output
                            const std::unordered_map<std::string, Tensor>* inputs,
                            Control                                        control)
 {
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoder<T>::forward -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
-    printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoder<T>::forward -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
+    // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
     
     if (debug_) {
         if (tensor_para_.rank_ == 0) {

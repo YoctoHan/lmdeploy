@@ -121,6 +121,31 @@ void invokeAddResidual(T* out, const T* in, int m, int n, cudaStream_t stream)
 template void invokeAddResidual(float*, const float*, int, int, cudaStream_t);
 template void invokeAddResidual(half*, const half*, int, int, cudaStream_t);
 
+// -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+template<typename T>
+__global__ void invokeAddBias(T* out, const T* in, size_t n, int hidden_units)
+{
+    auto idx = threadIdx.x + (size_t)blockIdx.x * blockDim.x;
+    auto idy = idx % hidden_units;
+    if (idx < n) {
+        out[idx] = static_cast<T>(static_cast<float>(out[idx]) + static_cast<float>(in[idy]));
+    }
+}
+
+template<typename T>
+void invokeAddBias(T* out, const T* in, int m, int n, cudaStream_t stream)
+{
+    auto total = static_cast<size_t>(m) * n;
+    dim3 block(std::min((unsigned long)total, 1024UL));
+    dim3 grid((total + block.x - 1) / block.x);
+
+    invokeAddBias<<<grid, block, 0, stream>>>(out, in, total, n);
+}
+
+template void invokeAddBias(float*, const float*, int, int, cudaStream_t);
+template void invokeAddBias(half*, const half*, int, int, cudaStream_t);
+// -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
 // ids [seq_len, batch_size]
 // input_ids [batch_size, max_input_len]
 __global__ void

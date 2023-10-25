@@ -619,18 +619,25 @@ If a question does not make any sense, or is not factually coherent, explain why
         Returns:
             str: the concatenated prompt
         """
-        if isinstance(messages, str):
-            return self.get_prompt(messages, sequence_start)
-        system, users, assistants = self._translate_messages(messages)
-        system = self.default_sys_prompt if not system else system
-        ret = f'<BOS>{self.b_inst} {self.b_sys} {system} {self.e_sys}'
-        for i, (user, assistant) in enumerate(zip(users, assistants)):
-            if i != 0:
-                ret += f'{self.b_inst} '
-            if assistant:
-                ret += f'{user} {self.e_inst} {assistant}'
-            else:
-                ret += f'{user} {self.e_inst} '
+        # if isinstance(messages, str):
+        #     return self.get_prompt(messages, sequence_start)
+        # system, users, assistants = self._translate_messages(messages)
+        # system = self.default_sys_prompt if not system else system
+        # ret = f'<BOS>{self.b_inst} {self.b_sys} {system} {self.e_sys}'
+        # for i, (user, assistant) in enumerate(zip(users, assistants)):
+        #     if i != 0:
+        #         ret += f'{self.b_inst} '
+        #     if assistant:
+        #         ret += f'{user} {self.e_inst} {assistant}'
+        #     else:
+        #         ret += f'{user} {self.e_inst} '
+        ret = """import torch
+import os
+import re
+import json
+import numpy as np
+import pathlib 
+import """
         return ret
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 

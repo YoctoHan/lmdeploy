@@ -268,7 +268,6 @@ def merge_qkv(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, tp: int,
 def merge_q_kv(q: torch.Tensor, k_v: torch.Tensor, tp: int, dim: int):
     def reshape(x):
         return x.view(x.size(0), tp, -1) if dim == 2 else x.view(tp, -1)
-
     qkv = torch.cat((reshape(q), reshape(k_v)), dim=-1)
 
     # (input_dim, head_num + 2 * kv_head_num)
@@ -467,6 +466,8 @@ def deploy_star_coder(model_name: str, model_path: str, tokenizer_path: str,
                 break
             # concat by heads
             qkv = merge_q_kv(*qkv, tp, dim=2 if t == 'weight' else 1)
+            if t == 'bias':
+                import pdb;pdb.set_trace()
             print(f'layers.{i}.attention.qkv.{t}', qkv.shape)
             model_params[f'layers.{i}.attention.qkv.{t}'] = qkv
 
@@ -1063,10 +1064,10 @@ def main():
             to 4 bits
     """
     model_name = "star_coder"
-    model_path = "/data9/ningwei/aix2_base/"
+    model_path = "/data3/StarCoderBase/"
     model_format = "star_coder"
-    tokenizer_path = "/data9/ningwei/aix2_base/aixTokenizer"
-    dst_path = "./star_coder_workspace"
+    tokenizer_path = "/data3/StarCoderBase/aixTokenizer"
+    dst_path = "./star_coder_workspace_test"
     tp = 1
     quant_path = None
     group_size = 0

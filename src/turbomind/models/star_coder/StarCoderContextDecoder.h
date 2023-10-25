@@ -100,13 +100,21 @@ public:
 
     ~StarCoderContextDecoder() override;
 
-    virtual void forward(std::unordered_map<std::string, Tensor>*        output_tensors,
-                         const std::unordered_map<std::string, Tensor>*  input_tensors,
-                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights);
+    // virtual void forward(std::unordered_map<std::string, Tensor>*        output_tensors,
+    //                      const std::unordered_map<std::string, Tensor>*  input_tensors,
+    //                      const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights);
 
     virtual void forward(std::vector<Tensor>*                            output_tensors,
                          const std::vector<Tensor>*                      input_tensors,
-                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights);
+                        const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                         const T**                                            final_layernorm_weight,
+                         const T**                                            final_layernorm_bias);
+
+    virtual void forward(std::unordered_map<std::string, Tensor>*            output_tensors,
+                         const std::unordered_map<std::string, Tensor>*      input_tensors,
+                         const std::vector<StarCoderDecoderLayerWeight<T>*>* decoder_layer_weights,
+                         const T**                                            final_layernorm_weight,
+                         const T**                                            final_layernorm_bias);
 };
 
 }  // namespace turbomind

@@ -765,8 +765,8 @@ template<typename T>
 void StarCoderBatch<T>::contextDecode()
 {
 
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoderBatch<T>::contextDecode -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
+    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoderBatch<T>::contextDecode -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
     
     int base = -1;
     for (int i = 0; i < batch_size_; ++i) {
@@ -796,11 +796,11 @@ void StarCoderBatch<T>::contextDecode()
         auto max_input_len   = get_input_len(base);
         auto max_context_len = get_context_len(base);
 
-        printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- Paramer check *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
-        printf("token_num : %d \n", int(token_num));    
-        printf("max_input_len : %d \n", int(max_input_len));    
-        printf("max_context_len : %d \n", int(max_context_len));    
-        printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+        // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- Paramer check *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
+        // printf("token_num : %d \n", int(token_num));    
+        // printf("max_input_len : %d \n", int(max_input_len));    
+        // printf("max_context_len : %d \n", int(max_context_len));    
+        // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
 
 
         auto offset          = base;
