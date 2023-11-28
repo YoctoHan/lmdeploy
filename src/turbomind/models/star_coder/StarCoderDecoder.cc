@@ -124,6 +124,7 @@ void StarCoderDecoder<T>::forwardSelfAttn(const StarCoderDecoder::Session&      
                                         {MEMORY_GPU, data_type_, {sess.batch_size, hidden_units_}, attn_io});
     const int layer_id = layer;
     self_attention_input_tensors.insert("layer_id", {MEMORY_CPU, TYPE_INT32, {1}, &layer_id});
+
     auto& k_cache = *sess.k_cache;
     auto& v_cache = *sess.v_cache;
 
@@ -187,8 +188,6 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
     Session sess{};
     sess.batch_size = input_tensors->at("decoder_input").shape[0];
     sess.weights    = decoder_layer_weights;
-    printf("\n\n batch_size : %d  \n\n", sess.batch_size);
-    exit(0);
     allocateBuffer(sess.batch_size);
 
     sess.ite     = input_tensors->at("ite").getVal<const int>();
@@ -219,6 +218,26 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
         invokeAddResidual(decoder_output, decoder_input, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
 
+        // {
+        //     int num_element = 6144;
+        //     half* data_host = new half[num_element];
+        //     cudaD2Hcpy(data_host, (half *)(decoder_output), num_element);
+
+        //     std::vector<float> vec_float(num_element);
+        //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+        //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_output.bin";
+        //     std::ofstream outfile(file_name, std::ios::binary);
+        //     if (outfile.is_open())
+        //     {   
+        //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+        //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+        //         outfile.close();
+        //     }
+        //     delete[] data_host;
+        // }
+        // exit(0);
+
         invokeGeneralLayerNorm(decoder_input,
                                decoder_output,
                                decoder_layer_weights->at(layer)->post_self_attn_norm_weights,
@@ -244,6 +263,25 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
         
         invokeAddResidual(decoder_input, decoder_output, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
+
+        // {
+        //     int num_element = 6144;
+        //     half* data_host = new half[num_element];
+        //     cudaD2Hcpy(data_host, (half *)(decoder_input), num_element);
+
+        //     std::vector<float> vec_float(num_element);
+        //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+        //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_" + std::to_string(layer) + "_output.bin";
+        //     std::ofstream outfile(file_name, std::ios::binary);
+        //     if (outfile.is_open())
+        //     {   
+        //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+        //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+        //         outfile.close();
+        //     }
+        //     delete[] data_host;
+        // }
     }
     
     invokeGeneralLayerNorm(decoder_output,
@@ -259,6 +297,26 @@ void StarCoderDecoder<T>::forward(std::unordered_map<std::string, Tensor>*      
                            stream_);
     sync_check_cuda_error();
 
+    // {
+    //     int num_element = 6144;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(decoder_output), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/dynamicDecode/final_layernorm_outputs_lmdeploy.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    // exit(0);
+    
     if (is_free_buffer_after_forward_) {
         freeBuffer();
     }

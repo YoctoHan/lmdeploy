@@ -466,8 +466,6 @@ def deploy_star_coder(model_name: str, model_path: str, tokenizer_path: str,
                 break
             # concat by heads
             qkv = merge_q_kv(*qkv, tp, dim=2 if t == 'weight' else 1)
-            if t == 'bias':
-                import pdb;pdb.set_trace()
             print(f'layers.{i}.attention.qkv.{t}', qkv.shape)
             model_params[f'layers.{i}.attention.qkv.{t}'] = qkv
 
@@ -1067,7 +1065,7 @@ def main():
     model_path = "/data3/StarCoderBase/"
     model_format = "star_coder"
     tokenizer_path = "/data3/StarCoderBase/aixTokenizer"
-    dst_path = "./star_coder_workspace_test"
+    dst_path = "./star_coder_workspace"
     tp = 1
     quant_path = None
     group_size = 0

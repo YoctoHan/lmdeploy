@@ -489,45 +489,45 @@ bool StarCoderBatch<T>::generate()
 
     // embeddingLookup(step_ - 1);
     star_coder_->embeddingLookup(decoder_input_buf_,  //
-                            token_ids_buf_,
-                            batch_size_,
-                            step_ - 1);
+                                 token_ids_buf_,
+                                 batch_size_,
+                                 step_ - 1);
 
     star_coder_->decoderForward(decoder_output_buf_,
-                           k_cache_ptr_buf_,
-                           v_cache_ptr_buf_,
-                           decoder_input_buf_,
-                           sequence_lengths_,
-                           total_padding_count_,
-                           finished_buf_,
-                           step_,
-                           0,
-                           session_len_,
-                           batch_size_);
+                                k_cache_ptr_buf_,
+                                v_cache_ptr_buf_,
+                                decoder_input_buf_,
+                                sequence_lengths_,
+                                total_padding_count_,
+                                finished_buf_,
+                                step_,
+                                0,
+                                session_len_,
+                                batch_size_);
 
     star_coder_->postDecodeEmbedding(logits_buf_,  //
-                                local_logits_buf_,
-                                decoder_output_buf_,
-                                batch_size_);
+                                     local_logits_buf_,
+                                     decoder_output_buf_,
+                                     batch_size_);
 
     // stop-words & bad-words require the matched tokens to be contiguous, so item size > 1 is
     // not supported yet.
     bool should_stop{};
     star_coder_->dynamicDecode(token_ids_buf_,
-                          finished_buf_,
-                          sequence_lengths_,
-                          &should_stop,
-                          &inputs_,
-                          &outputs_,
-                          logits_buf_,
-                          seq_limit_len_,
-                          context_length_buf_,
-                          end_ids_buf_,
-                          step_,
-                          0,
-                          max_context_len_,
-                          session_len_ * 2,
-                          batch_size_);
+                               finished_buf_,
+                               sequence_lengths_,
+                               &should_stop,
+                               &inputs_,
+                               &outputs_,
+                               logits_buf_,
+                               seq_limit_len_,
+                               context_length_buf_,
+                               end_ids_buf_,
+                               step_,
+                               0,
+                               max_context_len_,
+                               session_len_ * 2,
+                               batch_size_);
 
     if (debug_ && rank_ == 0) {
         std::vector<int> curr(batch_size_);
@@ -889,8 +889,8 @@ void StarCoderBatch<T>::contextDecode()
 
 template<typename T>
 void StarCoderBatch<T>::outputContextLogits(T*                      context_decoder_output,
-                                        const std::vector<int>& indices,
-                                        const std::vector<int>& lengths)
+                                            const std::vector<int>& indices,
+                                            const std::vector<int>& lengths)
 {
     std::vector<float*> output_logits;
     int                 num_token = 0;

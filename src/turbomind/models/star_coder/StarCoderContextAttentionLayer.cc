@@ -208,8 +208,8 @@ inline void StarCoderContextAttentionLayer<T>::forward(TensorMap*               
                         stream_,
                         quant_policy_,
                         weights->past_kv_scale.data());
-    
     sync_check_cuda_error();
+    
     if (use_fmha_) {
         fusedMultiHeadAttention(k_cache_ptrs,
                                 v_cache_ptrs,

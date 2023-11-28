@@ -245,7 +245,7 @@ void TopKSamplingLayer<T>::runSampling(TensorMap* output_tensors, TensorMap* inp
             stream_);
         sync_check_cuda_error();
     }
-
+    
     invokeBatchTopKSampling(
         sampling_workspace_,
         sampling_workspace_size_,

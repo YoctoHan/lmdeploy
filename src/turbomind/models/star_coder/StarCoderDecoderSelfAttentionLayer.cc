@@ -109,6 +109,123 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     params.k = reinterpret_cast<const DataType*>(qkv_buf) + head_num * size_per_head;
     params.v = reinterpret_cast<const DataType*>(qkv_buf) + (head_num + kv_head_num) * size_per_head;
 
+    {
+    //  {
+    //     int num_element = head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.q_bias), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_q_bias.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+
+    // {
+    //     int num_element = kv_head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.k_bias), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_k_bias.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+
+    // {
+    //     int num_element = kv_head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.v_bias), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_v_bias.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+
+    // {
+    //     int num_element = head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.q), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_q.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+
+    // {
+    //     int num_element = kv_head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.k), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_k.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+
+    // {
+    //     int num_element = kv_head_num * size_per_head;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(params.v), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_v.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    }
+
+
     params.stride   = (head_num + 2 * kv_head_num) * size_per_head;
     params.finished = const_cast<bool*>(finished);
 
@@ -129,11 +246,31 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     params.num_kv_heads = kv_head_num;
 
     params.hidden_size_per_head    = size_per_head;
-    params.rotary_embedding_dim    = rotary_embedding_dim;
+    // params.rotary_embedding_dim    = rotary_embedding_dim;
+    params.rotary_embedding_dim    = 0;
     params.rotary_embedding_base   = rotary_embedding_base;
     params.max_position_embeddings = max_position_embeddings;
     params.use_dynamic_ntk         = use_dynamic_ntk;
     params.use_logn_attn           = use_logn_attn;
+
+    // printf("\n params.stride = %d \n", int(params.stride));
+    // printf("\n params.finished = %d \n", int(params.finished == nullptr));
+    // printf("\n params.kv_cache_per_sample_offset = %d \n", int(params.kv_cache_per_sample_offset));
+    // printf("\n params.batch_size = %d \n", int(params.batch_size));
+    // printf("\n params.beam_width = %d \n", int(params.beam_width));
+    // printf("\n params.memory_max_len = %d \n", int(params.memory_max_len));
+    // printf("\n params.prefix_prompt_lengths = %d \n", int(params.prefix_prompt_lengths == nullptr));
+    // printf("\n params.max_prefix_prompt_length = %d \n", int(params.max_prefix_prompt_length));
+    // printf("\n params.length_per_sample = %d \n", int(params.length_per_sample == nullptr));
+    // printf("\n params.timestep = %d \n", int(params.timestep));
+    // printf("\n params.num_heads = %d \n", int(params.num_heads));
+    // printf("\n params.num_kv_heads = %d \n", int(params.num_kv_heads));
+    // printf("\n params.hidden_size_per_head = %d \n", int(params.hidden_size_per_head));
+    // printf("\n params.rotary_embedding_dim = %d \n", int(params.rotary_embedding_dim));
+    // printf("\n params.rotary_embedding_base = %d \n", int(params.rotary_embedding_base));
+    // printf("\n params.max_position_embeddings = %d \n", int(params.max_position_embeddings));
+    // printf("\n params.use_logn_attn = %d \n", int(params.use_logn_attn));
+    // printf("\n int8_mode & QuantPolicy::kCacheKVInt8 = %d \n", int(int8_mode & QuantPolicy::kCacheKVInt8));
 
     // Note: keep norm factor (sqrt(K_dim)) when adopting megatron T5 structure (may adjust)
     params.inv_sqrt_dh = 1.F / (sqrtf((float)params.hidden_size_per_head) * q_scaling);
@@ -162,6 +299,7 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
 
     PUSH_RANGE("scaled dot-product fusion");
     masked_multihead_attention(params, stream);
+    // exit(0);
     POP_RANGE;
 }
 
@@ -233,16 +371,80 @@ void StarCoderDecoderSelfAttentionLayer<T>::forward(TensorMap*                  
 
     const int batch_size = input_tensors->at("input_query").shape[0];
     const int beam_width = cache_indir != nullptr ? input_tensors->at("cache_indirection").shape[1] : 1;
+    
+    // {
+    //     int num_element = 6144 * 6400;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(weights->qkv.kernel), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_weight.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    
+    // {
+    //     int num_element = 6400;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(weights->qkv.bias), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_bias.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    // exit(0);
 
     allocateBuffer(batch_size, step, max_seq_len);
-
     PUSH_RANGE("qkv_gemm");
     linear_.forward(qkv_buf_, input_query_data, batch_size, weights->qkv);
+    // invokeAddBias(qkv_buf_, weights->qkv.bias, batch_size, hidden_units_ + local_kv_head_num_ * 2 * size_per_head_, stream_); 
+    sync_check_cuda_error();
     POP_RANGE;
+
+    // {
+    //     int num_element = 6400;
+    //     half* data_host = new half[num_element];
+    //     cudaD2Hcpy(data_host, (half *)(qkv_buf_), num_element);
+
+    //     std::vector<float> vec_float(num_element);
+    //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_qkv.bin";
+    //     std::ofstream outfile(file_name, std::ios::binary);
+    //     if (outfile.is_open())
+    //     {   
+    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+    //         outfile.close();
+    //     }
+    //     delete[] data_host;
+    // }
+    // exit(0);
 
     const auto kv_cache_layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
     const int  memory_len            = max_seq_len;
 
+    // printf("\n kv_cache_layer_offset : %d \n", int(kv_cache_layer_offset));
+    // printf("\n memory_len : %d \n", int(memory_len));
+    // exit(0);
+    
     fusedQKV_masked_attention_dispatch<T>(
         qkv_buf_,
         weights->qkv.bias,  // query_weight.bias,
@@ -287,7 +489,9 @@ void StarCoderDecoderSelfAttentionLayer<T>::forward(TensorMap*                  
         stream_);
     sync_check_cuda_error();
 
-    // linear_.forward(hidden_features_data, context_buf_, batch_size, weights->output);
+    linear_.forward(hidden_features_data, context_buf_, batch_size, weights->output);
+    invokeAddBias(hidden_features_data, weights->output.bias, batch_size, hidden_units_, stream_);
+    sync_check_cuda_error();
 
     if (tensor_para_.world_size_ > 1) {
         NcclGuard nccl_guard(tensor_para_, stream_);

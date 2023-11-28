@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+option go_package = "/cache";
+
+package cache;
+
+service Cache {
+  rpc UpdateAndGet(Request) returns (Response) {}
+}
+
+message ContextWithTimestamp {
+  string context   = 1;  // 内容
+  int64  timestamp = 2;  // 时间戳
+}
+
+message CodeRequest {
+  string code_string        = 1;
+  string later_code         = 2;
+  int64  code_string_offset = 3;
+  int64  later_code_offset  = 4;
+  string code_string_md5    = 5;
+  string later_code_md5     = 6;
+}
+
+message CodeResponse {
+  string code_string = 1;
+  string later_code  = 2;
+  string message     = 3;
+  bool   ok          = 4;
+}
+
+message ReferenceFilesRequest {
+  map<string, string> required_files       = 1;  // 文件名:md5, 请求文件
+  map<string, ContextWithTimestamp> accept = 2;  // 文件名:内容, 存储缓存
+}
+
+message ReferenceFilesReponse {
+  map<string, string> context = 1;  // 文件名:缓存内容, 命中缓存
+  map<string, string> md5     = 2;  // 文件名:实际缓存md5, 未命中缓存
+  repeated   string name      = 3;  // 文件名, 未查询到对应记录
+}
+
+message Context {
+  string uuid         = 1;
+  string project_root = 2;
+  string file_path    = 3;
+}
+
+message Request {
+  Context               ctx = 1;
+  ReferenceFilesRequest rfr = 2;
+  CodeRequest           cr  = 3;
+}
+
+message Response {
+  ReferenceFilesReponse rfr = 1;
+  CodeResponse          cr  = 2;
+}

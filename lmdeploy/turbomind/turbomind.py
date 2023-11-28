@@ -85,7 +85,7 @@ class TurboMind:
 
         # read meta from model path
         self.gpu_count = tp
-        self.session_len = 2048
+        self.session_len = 8192
         data_type = 'fp16'
         ini_path = osp.join(model_path, 'triton_models/weights/config.ini')
         with open(ini_path, 'r') as f:
@@ -222,7 +222,7 @@ class TurboMindInstance:
     def stream_infer(self,
                      session_id,
                      input_ids,
-                     request_output_len: int = 512,
+                     request_output_len: int = 8192,
                      sequence_start: bool = True,
                      sequence_end: bool = False,
                      step=1,
@@ -256,6 +256,7 @@ class TurboMindInstance:
             random_seed (int): seed used by sampling
             stream_output (bool): indicator for stream output
         """
+
         if stream_output:
             self.model_insts[0].register_callback(self._forward_callback)
 
@@ -322,7 +323,6 @@ class TurboMindInstance:
         if random_seed is not None:
             inputs['random_seed'] = _broadcast_np(random_seed, np.uint64)
         tm_inputs = _np_dict_to_tm_dict(inputs)
-
         # start forward thread
         self._forward_thread(tm_inputs)
 

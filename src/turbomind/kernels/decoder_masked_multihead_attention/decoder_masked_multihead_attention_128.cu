@@ -37,7 +37,7 @@
                                                          HAS_BEAMS,                                               \
                                                          QUANT_POLICY>;                                           \
     size_t smem_sz = mmha::smem_size_in_bytes<T>(params, THDS_PER_VALUE, THDS_PER_BLOCK);                              \
-    dim3   grid(params.num_heads, params.batch_size);                                                                  \
+    dim3   grid(params.num_heads, params.batch_size);                                                  \
     cudaFuncSetAttribute(func, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_sz);                                  \
     func<<<grid, THDS_PER_BLOCK, smem_sz, stream>>>(params)
 
@@ -49,7 +49,6 @@ void mmha_launch_kernel(const KERNEL_PARAMS_TYPE& params, const cudaStream_t& st
     constexpr int THREADS_PER_VALUE = threads_per_value_t<T, Dh_MAX>::value;
 
     const int tlength = params.timestep;
-
     if (params.int8_mode == 4) {
         if (tlength < 32) {
             MMHA_LAUNCH_KERNEL(T, Dh, Dh_MAX, 4, THREADS_PER_VALUE, 64, false, 4, stream);

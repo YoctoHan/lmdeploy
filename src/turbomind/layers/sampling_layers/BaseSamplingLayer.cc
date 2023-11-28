@@ -302,35 +302,36 @@ void BaseSamplingLayer<T>::forward(TensorMap* output_tensors, TensorMap* input_t
 
     const T* embedding_bias =
         input_tensors->isExist("embedding_bias") ? input_tensors->at("embedding_bias").getPtr<T>() : nullptr;
-    if (embedding_bias != nullptr || !ALL_OF(temperature_ + ite * local_batch_size, local_batch_size, float, 1.0f)) {
-        invokeBatchApplyTemperaturePenalty(logits,
-                                           embedding_bias,
-                                           temperature_buf_ + ite * local_batch_size,
-                                           local_batch_size,
-                                           vocab_size_,
-                                           vocab_size_padded_,
-                                           stream_);
-    }
-    sync_check_cuda_error();
 
-    if (step > 1 && repetition_penalty_type_ != RepetitionPenaltyType::None) {
-        float default_value = getDefaultPenaltyValue(repetition_penalty_type_);
-        if (!ALL_OF(repetition_penalty_ + ite * local_batch_size, local_batch_size, float, default_value)) {
-            invokeBatchApplyRepetitionPenalty(
-                logits,
-                repetition_penalty_buf_ + ite * local_batch_size,
-                output_tensors->at("output_ids").getPtrWithOffset<int>(ite * local_batch_size),
-                batch_size,
-                local_batch_size,
-                vocab_size_padded_,
-                input_tensors->at("input_lengths", Tensor{MEMORY_GPU, TYPE_INT32, {}, nullptr}).getPtr<int>(),
-                max_input_length,
-                step,
-                repetition_penalty_type_,
-                stream_);
-            sync_check_cuda_error();
-        }
-    }
+    // if (embedding_bias != nullptr || !ALL_OF(temperature_ + ite * local_batch_size, local_batch_size, float, 1.0f)) {
+    //     invokeBatchApplyTemperaturePenalty(logits,
+    //                                        embedding_bias,
+    //                                        temperature_buf_ + ite * local_batch_size,
+    //                                        local_batch_size,
+    //                                        vocab_size_,
+    //                                        vocab_size_padded_,
+    //                                        stream_);
+    // }
+    // sync_check_cuda_error();
+
+    // if (step > 1 && repetition_penalty_type_ != RepetitionPenaltyType::None) {
+    //     float default_value = getDefaultPenaltyValue(repetition_penalty_type_);
+    //     if (!ALL_OF(repetition_penalty_ + ite * local_batch_size, local_batch_size, float, default_value)) {
+    //         invokeBatchApplyRepetitionPenalty(
+    //             logits,
+    //             repetition_penalty_buf_ + ite * local_batch_size,
+    //             output_tensors->at("output_ids").getPtrWithOffset<int>(ite * local_batch_size),
+    //             batch_size,
+    //             local_batch_size,
+    //             vocab_size_padded_,
+    //             input_tensors->at("input_lengths", Tensor{MEMORY_GPU, TYPE_INT32, {}, nullptr}).getPtr<int>(),
+    //             max_input_length,
+    //             step,
+    //             repetition_penalty_type_,
+    //             stream_);
+    //         sync_check_cuda_error();
+    //     }
+    // }
 
     const int  num_generated_tokens      = step - max_input_length;
     const int* min_lengths               = min_lengths_ + ite * local_batch_size;

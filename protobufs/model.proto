@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+option go_package = "/model";
+
+package model;
+
+service Model {
+  rpc Encoder(EncoderRequest) returns (EncoderResponse) {}
+  rpc Decoder(Empty) returns (DecoderResponse) {}
+  rpc Eval(EvalRequest) returns (EvalResponse) {}
+  rpc CreatePrediction(PredictRequest) returns (Empty) {}
+  rpc GetResult(Empty) returns (PredictResponse) {}
+  rpc Config(Empty) returns (ConfigResponse) {}
+}
+
+message Empty {}
+
+message EvalRequest {
+  string context = 1;
+}
+
+message EvalResponse {
+  string output = 1;
+}
+
+message EncoderRequest {
+  string context = 1;
+}
+
+message EncoderResponse {
+  repeated int64 outputs = 1;
+}
+
+message DecoderResponse {
+  map<int64, string> decoder = 1;
+  repeated string special_tokens = 2;
+  string bos_token = 3;
+  string eos_token = 4;
+  string unk_token = 5;
+  map<string, Prompts> prompts = 6;
+}
+
+message Prompts {
+  repeated Prompt prompt = 1;
+}
+
+message Prompt {
+  string file_path = 1;
+  string code_string = 2;
+  string signature = 3;
+}
+
+message PredictRequest {
+  repeated int64 tokens = 1;
+  string id = 2;
+  string sampling_type = 3;
+  int64 beam_width = 4;
+}
+
+message PredictResponse {
+  repeated int64 out = 1;
+  repeated PredictDetail detail = 2;
+}
+
+message PredictDetail {
+  double prob = 1;
+  map<int64, double> candidate = 2;
+}
+
+message ConfigResponse {
+  bool is_instruct_model = 1;
+  bool is_less_content_token = 2;
+  bool is_has_not_file_path = 3;
+  bool is_post_after_code = 4;
+}

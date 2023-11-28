@@ -10,9 +10,9 @@ MODELS = Registry('model', locations=['lmdeploy.model'])
 
 @dataclasses.dataclass
 class SamplingParam:
-    top_p: float = 0.8
-    top_k: float = None
-    temperature: float = 0.8
+    top_p: float = 0.0
+    top_k: float = 1.0
+    temperature: float = 1.0
     repetition_penalty: float = 1.0
 
 
@@ -24,10 +24,10 @@ class BaseModel:
 
     def __init__(self,
                  session_len=2048,
-                 top_p=0.8,
+                 top_p=0.0,
                  top_k=None,
-                 temperature=0.8,
-                 repetition_penalty=1.0,
+                 temperature=1.0,
+                 repetition_penalty=0.0,
                  capability='chat',
                  **kwargs):
         self.session_len = session_len
@@ -576,11 +576,8 @@ class StarCoder(BaseModel):
             e_inst='[/INST]',
             b_sys='<<SYS>>\n',
             e_sys='\n<</SYS>>\n\n',
-            system="""\
-You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
-
-If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.""",  # noqa: E501
-            session_len=4096,
+            system="""""",
+            session_len=8192,
             **kwargs):
         super().__init__(**kwargs)
         self.b_inst = b_inst
@@ -591,24 +588,7 @@ If a question does not make any sense, or is not factually coherent, explain why
         self.session_len = session_len
 
     def decorate_prompt(self, prompt, sequence_start=True):
-        """Return the prompt that is concatenated with other elements in the
-        chat template.
-
-        Args:
-            prompt (str): user's input prompt
-            sequence_start (bool): indicator for the first round chat of a
-               session sequence
-        Returns:
-            str: the concatenated prompt
-        """
-        assert self.capability == 'chat', \
-            f'{type(self).__name__} has no capability of {self.capability}'
-        if sequence_start:
-            return f'<BOS>{self.b_inst} ' \
-                   f'{self.b_sys} {self.default_sys_prompt} {self.e_sys}' \
-                   f'{prompt} {self.e_inst} '
-
-        return f'{self.b_inst} {prompt} {self.e_inst} '
+            return prompt
 
     def messages2prompt(self, messages, sequence_start=True):
         """Return the prompt that is concatenated with other elements in the
@@ -619,26 +599,7 @@ If a question does not make any sense, or is not factually coherent, explain why
         Returns:
             str: the concatenated prompt
         """
-        # if isinstance(messages, str):
-        #     return self.get_prompt(messages, sequence_start)
-        # system, users, assistants = self._translate_messages(messages)
-        # system = self.default_sys_prompt if not system else system
-        # ret = f'<BOS>{self.b_inst} {self.b_sys} {system} {self.e_sys}'
-        # for i, (user, assistant) in enumerate(zip(users, assistants)):
-        #     if i != 0:
-        #         ret += f'{self.b_inst} '
-        #     if assistant:
-        #         ret += f'{user} {self.e_inst} {assistant}'
-        #     else:
-        #         ret += f'{user} {self.e_inst} '
-        ret = """import torch
-import os
-import re
-import json
-import numpy as np
-import pathlib 
-import """
-        return ret
+        return messages
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 

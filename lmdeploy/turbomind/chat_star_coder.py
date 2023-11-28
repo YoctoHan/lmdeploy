@@ -3,6 +3,7 @@ import dataclasses
 import os
 import os.path as osp
 import random
+import time
 
 import fire
 
@@ -22,7 +23,7 @@ class GenParam:
     sequence_start: bool = False
     sequence_end: bool = False
     step: int = 0
-    request_output_len: int = 512
+    request_output_len: int = 8192
 
 
 def input_prompt(model_name):
@@ -50,14 +51,14 @@ def get_gen_param(cap,
                   sampling_param,
                   nth_round,
                   step,
-                  request_output_len=512,
+                  request_output_len=8192,
                   **kwargs):
     """return parameters used by token generation."""
     gen_param = GenParam(**dataclasses.asdict(sampling_param),
                          request_output_len=request_output_len)
     # Fix me later. turbomind.py doesn't support None top_k
     if gen_param.top_k is None:
-        gen_param.top_k = 40
+        gen_param.top_k = 1
 
     if cap == 'chat':
         gen_param.sequence_start = (nth_round == 1)
@@ -87,14 +88,16 @@ def main():
     """
     model_path = "./star_coder_workspace"
     session_id = 1
-    cap = 'chat'
+    cap = 'completion'
     sys_instruct = None
     tp = 1
     stream_output = True
     
     tokenizer = GPTTokenizer(vocab_dir="/data3/StarCoderBase/")
-    tm_model = tm.TurboMind(model_path, eos_id = 0, tp=tp)
+    tm_model = tm.TurboMind(model_path, eos_id = tokenizer.eos_id, tp=tp)
     generator = tm_model.create_instance()
+
+    # import pdb;pdb.set_trace()
 
     nth_round = 1
     step = 0
@@ -105,9 +108,9 @@ def main():
             capability=cap, system=sys_instruct)
 
     print(f'session {session_id}')
+
     while True:
-        # prompt = input_prompt(model_name)
-        prompt = ''
+        prompt = input_prompt(model_name)
         if prompt == 'exit':
             exit(0)
         elif prompt == 'end':
@@ -115,7 +118,7 @@ def main():
             input_ids = tokenizer.encode(prompt)
             for outputs in generator.stream_infer(session_id=session_id,
                                                   input_ids=[input_ids],
-                                                  request_output_len=512,
+                                                  request_output_len=8192,
                                                   sequence_start=False,
                                                   sequence_end=True,
                                                   stream_output=stream_output):
@@ -124,14 +127,7 @@ def main():
             step = 0
             seed = random.getrandbits(64)
         else:
-            # prompt = model.get_prompt(prompt, nth_round)
-            prompt = """import torch
-import os
-import re
-import json
-import numpy as np
-import pathlib 
-import """
+            prompt = model.get_prompt(prompt, nth_round == 1)
             input_ids = tokenizer.encode(prompt)
             if step + len(input_ids) >= tm_model.session_len:
                 print('WARNING: exceed session max length.'
@@ -140,10 +136,13 @@ import """
 
             gen_param = get_gen_param(cap, model.sampling_param, nth_round,
                                       step)
+            
+            import pdb;pdb.set_trace()
 
             print(f'{prompt} ', end='', flush=True)
             print()
             response_size = 0
+
             for outputs in generator.stream_infer(
                     session_id=session_id,
                     input_ids=[input_ids],
@@ -153,10 +152,11 @@ import """
                     random_seed=seed if nth_round == 1 else None):
                 res, tokens = outputs[0]
                 # decode res
-                # import pdb;pdb.set_trace()
                 response = tokenizer.decode(res.tolist(), offset=response_size)
                 response = valid_str(response)
-                print(f'{response}', end='', flush=True)
+
+                # print(f'{response}', end='', flush=True)
+                print(response)
                 response_size = tokens
 
             # update step

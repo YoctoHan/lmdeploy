@@ -88,12 +88,7 @@ StarCoder<T>::StarCoder(size_t                           head_num,
     step_length_(step_length),
     batch_(max_batch_size, max_context_token_num, session_len, this),
     shared_state_(shared_state)
-
 {
-    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* StarCoder<T>::StarCoder *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
-    // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
-
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     TM_LOG_INFO("NCCL group_id = %d", tensor_para_.group_id_);
 
@@ -189,18 +184,18 @@ void StarCoder<T>::embeddingLookup(T* embeddings, const int* token_ids_buf, int 
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     // ! This kernel can't be used in context decoding
-    invokeEmbeddingLookupPosEncodingPadCount(embeddings,
-                                             weights_->pre_decoder_embedding_table,
-                                             static_cast<T*>(nullptr),  // position encoding
-                                             token_ids_buf,
-                                             static_cast<int*>(nullptr),  // padding count, not used w/o pos-code
-                                             batch_size,
-                                             hidden_units_,
-                                             static_cast<T>(1.),  // scale
-                                             step,                // step, used int index into output_ids_buf_
-                                             batch_size,          // token_num
-                                             0,                   // ite
-                                             stream_);
+    invokeDecoderInputIdsEmbeddingLookupPosEncoding(embeddings,
+                                                    nullptr,  // processed somewhere else
+                                                    weights_->pre_decoder_embedding_table,
+                                                    weights_->pre_decoder_position_embedding_table,
+                                                    pPromptTuningParam<T>{},
+                                                    token_ids_buf,
+                                                    step,  // only used for position encoding
+                                                    1,
+                                                    1,
+                                                    1,
+                                                    hidden_units_,
+                                                    stream_);
     sync_check_cuda_error();
 }
 
@@ -240,23 +235,6 @@ void StarCoder<T>::contextDecode(T*         deocder_output,
                                              stream_);
     sync_check_cuda_error();
 
-    {
-        int num_element = token_num;
-        int* data_host = new int[num_element];
-        cudaD2Hcpy(data_host, input_ids, num_element);
-
-        for (int i = 0; i < num_element; i ++) {
-            if (i == num_element - 1) {   
-                printf("%6d", data_host[i]);
-                break;
-            }
-            printf("%6d, ", data_host[i]);
-        }
-        printf("\n");
-        delete[] data_host;
-    }
-    exit(0);
-
     const auto dtype = getTensorType<T>();
     const auto bsz   = batch_size;
 
@@ -286,26 +264,6 @@ void StarCoder<T>::contextDecode(T*         deocder_output,
                               &weights_->decoder_layer_weights,
                               &weights_->output_norm_weight,
                               &weights_->output_norm_bias);
-    
-    // {
-    //     int num_element = token_num * hidden_units_;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)context_decoder_output_buf, num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/matmul/lmdeploy_context_decoder_output.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-    // exit(0);
 
     if (tensor_para_.rank_ == 0) {
         TM_LOG_INFO("context decoding end");
@@ -366,22 +324,22 @@ void StarCoder<T>::postDecodeEmbedding(float* logits, float* local_logits, const
     float          alpha     = 1.f;
     float          beta      = 0.f;
     if (tensor_para_.world_size_ == 1) {
-        cublas_wrapper_->Gemm(CUBLAS_OP_T,
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
-                              vocab_size_,  // n
                               batch_size,
-                              hidden_units_,  // k
+                              vocab_size_,
+                              hidden_units_,
                               &alpha,
-                              weights_->post_decoder_embedding_kernel,
-                              data_type,
-                              hidden_units_,  // k
                               decoder_output,
                               data_type,
-                              hidden_units_,  // k
+                              batch_size,
+                              weights_->post_decoder_embedding_kernel,
+                              data_type,
+                              hidden_units_,
                               &beta,
                               logits,
                               CUDA_R_32F,
-                              vocab_size_,  // n
+                              batch_size,
                               CUDA_R_32F,
                               cublasGemmAlgo_t(-1));
     }
@@ -513,7 +471,6 @@ void StarCoder<T>::internalThreadEntry(int device_id)
         }
 
         const int infer_request_count = infer_requests.size();
-
         if (!infer_requests.empty()) {
             batch_.initialize(infer_requests);  // reinitialize when new requests come, possible buffer allocation
             batch_.contextDecode();
@@ -522,7 +479,6 @@ void StarCoder<T>::internalThreadEntry(int device_id)
 
         // wait while shared stop/infer_requests is being used
         shared_state_->barrier->wait();
-
         if (batch_.size()) {
             if (modified) {
                 batch_.initializeGeneration();
@@ -574,10 +530,6 @@ void StarCoder<T>::forward(std::unordered_map<std::string, Tensor>*       output
                            const std::unordered_map<std::string, Tensor>* inputs,
                            Control                                        control)
 {
-    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*");
-    // printf("\n -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- StarCoder<T>::forward -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");    
-    // printf(" -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* \n");
-    
     if (debug_) {
         if (tensor_para_.rank_ == 0) {
             for (const auto& kv : *inputs) {

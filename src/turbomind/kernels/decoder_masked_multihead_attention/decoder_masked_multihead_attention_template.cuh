@@ -1225,7 +1225,15 @@ template<typename T,  // The type of the inputs. Supported types: float and half
          int  QUANT_POLICY>  // quantization method
 __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> params)
 {
-
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {
+    //     printf("\n Dh = %d", int(Dh));
+    //     printf("\n Dh_MAX = %d", int(Dh_MAX));
+    //     printf("\n THREADS_PER_KEY = %d", int(THREADS_PER_KEY));
+    //     printf("\n THREADS_PER_VALUE = %d", int(THREADS_PER_VALUE));
+    //     printf("\n THREADS_PER_BLOCK = %d", int(THREADS_PER_BLOCK));
+    //     printf("\n HAS_BEAMS = %d", int(HAS_BEAMS));
+    //     printf("\n QUANT_POLICY = %d", int(QUANT_POLICY));
+    // }
     using Tk = typename kernel_type_t<T>::Type;
 #ifdef ENABLE_FP8
     // FP8 MHA Scales
@@ -1252,7 +1260,7 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     // The shared memory for the logits. For FP32, that's the same buffer as qk_smem.
     char* logits_smem_ = smem_;
 #ifndef MMHA_USE_FP32_ACUM_FOR_LOGITS
-    if (sizeof(Tk) != 4) {
+    if (sizeof(Tk) != 4) {    
         // TODO - change to tlength
         const int max_timesteps = min(params.timestep, params.memory_max_len);
         logits_smem_ += div_up(max_timesteps + 1, 4) * 16;
@@ -1293,7 +1301,6 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     constexpr int QK_ELTS_IN_16B = 16 / sizeof(T);
     // The number of K vectors in 16B.
     constexpr int QK_VECS_IN_16B = 16 / sizeof(Qk_vec_m);
-
     // The batch/beam idx
     const int bi = blockIdx.y;
     if (params.finished != nullptr && params.finished[bi] == true) {
@@ -1313,6 +1320,16 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
 
     // The thread in the block.
     const int tidx = threadIdx.x;
+
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {
+    //     printf("\n hi = %d", int(hi));
+    //     printf("\n bhi = %d", int(bhi));
+    //     printf("\n head_n_rep = %d", int(head_n_rep));
+    //     printf("\n kvhi = %d", int(kvhi));
+    //     printf("\n group_leader = %d", int(group_leader));
+    //     printf("\n tidx = %d", int(tidx));
+    //     printf("\n");
+    // }
 
     // While doing the product Q*K^T for the different keys we track the max.
     float qk_max = -FLT_MAX;
@@ -1339,6 +1356,21 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     const int q_bias_offset = hi * Dh + tidx * QK_VEC_SIZE;
     const int k_bias_offset = kvhi * Dh + tidx * QK_VEC_SIZE;
 
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {
+    //     printf("\n params.stride = %d", int(params.stride));
+    //     printf("\n tlength = %d", int(tlength));
+    //     printf("\n first_step = %d", int(first_step));
+    //     printf("\n tlength_circ = %d", int(tlength_circ));
+    //     printf("\n is_masked = %d", int(is_masked));
+    //     printf("\n q_base_offset = %d", int(q_base_offset));
+    //     printf("\n k_base_offset = %d", int(k_base_offset));
+    //     printf("\n q_offset = %d", int(q_offset));
+    //     printf("\n k_offset = %d", int(k_offset));
+    //     printf("\n q_bias_offset = %d", int(q_bias_offset));
+    //     printf("\n k_bias_offset = %d", int(k_bias_offset));
+    //     printf("\n");
+    // }
+
     // past kv quant param
     const float k_scale = params.attention_k_scale;
     const float k_zp    = params.attention_k_zp;
@@ -1351,6 +1383,15 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     if (!is_masked && (Dh == Dh_MAX || tidx * QK_VEC_SIZE < Dh)) {
         q = vec_conversion<Qk_vec_k, Qk_vec_m>(*reinterpret_cast<const Qk_vec_m*>(&params.q[q_offset]));
     }
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&q);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("q     : %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
 
     Qk_vec_k k;
     zero(k);
@@ -1359,6 +1400,15 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
                 vec_conversion<Qk_vec_k, Qk_vec_m>(*reinterpret_cast<const Qk_vec_m*>(&params.k[k_offset])) :
                 k;
     }
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&k);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("k     : %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
 
     // Trigger the loads from the Q and K bias buffers.
     Qk_vec_k q_bias;
@@ -1366,6 +1416,15 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     q_bias = (!is_masked && Dh == Dh_MAX || tidx * QK_VEC_SIZE < Dh) && params.q_bias != nullptr ?
                  vec_conversion<Qk_vec_k, Qk_vec_m>(*reinterpret_cast<const Qk_vec_m*>(&params.q_bias[q_bias_offset])) :
                  q_bias;
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&q_bias);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("q_bias: %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
 
     Qk_vec_k k_bias;
     zero(k_bias);
@@ -1373,10 +1432,44 @@ __global__ void masked_multihead_attention_kernel(Multihead_attention_params<T> 
     k_bias = !is_masked && (Dh == Dh_MAX || tidx * QK_VEC_SIZE < Dh) && params.k_bias != nullptr ?
                  vec_conversion<Qk_vec_k, Qk_vec_m>(*reinterpret_cast<const Qk_vec_m*>(&params.k_bias[k_bias_offset])) :
                  k_bias;
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&k_bias);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("k_bias: %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
 
     // Computes the Q/K values with bias.
     q = add(q, q_bias);
     k = add(k, k_bias);
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&q);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("q     : %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
+    
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {            
+    //     half* hptr = reinterpret_cast<half*>(&k);
+    //     float f1 = __half2float(hptr[0]);
+    //     float f2 = __half2float(hptr[1]);
+    //     float f3 = __half2float(hptr[2]);
+    //     float f4 = __half2float(hptr[3]);
+    //     printf("k     : %f, %f, %f, %f\n", f1, f2, f3, f4);
+    // }
+
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {
+    //     printf("\n params.use_dynamic_ntk = %d", int(params.use_dynamic_ntk));
+    //     printf("\n params.rotary_embedding_dim = %d", int(params.rotary_embedding_dim));
+    //     printf("\n params.use_logn_attn = %d", int(params.use_logn_attn));
+    //     printf("\n");
+    // }
 
     float rotary_embedding_base = params.rotary_embedding_base;
     if (params.use_dynamic_ntk) {

@@ -439,7 +439,7 @@ void invokeExtendKVCache(T**          k_dst,
     constexpr int x        = (sizeof(T) == 4) ? 4 : 8;
 
     dim3 grid((max_q_len * size_per_head / x + block_sz - 1) / block_sz, local_batch_size, local_head_num);
-
+    
     if (quant & QuantPolicy::kCacheKVInt8) {
         extend_value_cache_int8<<<grid, block_sz, 0, stream>>>(reinterpret_cast<int8_t**>(k_dst),
                                                                dst_offset,

@@ -301,7 +301,6 @@ void DynamicDecodeLayer<T>::forward(TensorMap* output_tensors, TensorMap* input_
                                                                   local_batch_size * beam_width},
                                                                  step_offset + local_batch_offset)});
         }
-
         // Run topk / topp decode layers.
         // Currently, we support batch sampling. If the runtime arguments are like
         // topk = [4, 0, 4]. topp = [0.0, 0.5, 0.5]
@@ -309,7 +308,47 @@ void DynamicDecodeLayer<T>::forward(TensorMap* output_tensors, TensorMap* input_
         //      topp_decode handles [x, 0.5, x]
         // where "x" are skipped.
         topk_decode_->forward(&decode_output_tensors, &decode_input_tensors);
+
+        // {
+        //     int num_element = 49152;
+        //     float* data_host = new float[num_element];
+        //     cudaD2Hcpy(data_host, (float *)(input_tensors->at("logits").getPtr<T>()), num_element);
+
+        //     std::vector<float> vec_float(num_element);
+        //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+        //     std::string file_name = "/data/yocto_bak/analyse/dynamicDecode/post_embedding_output_5_lmdeploy.bin";
+        //     std::ofstream outfile(file_name, std::ios::binary);
+        //     if (outfile.is_open())
+        //     {   
+        //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+        //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+        //         outfile.close();
+        //     }
+        //     delete[] data_host;
+        // }
         topp_decode_->forward(&decode_output_tensors, &decode_input_tensors);
+
+        // {
+        //     int num_element = 49152;
+        //     float* data_host = new float[num_element];
+        //     cudaD2Hcpy(data_host, (float *)(input_tensors->at("logits").getPtr<T>()), num_element);
+
+        //     std::vector<float> vec_float(num_element);
+        //     std::copy(data_host, data_host+num_element, vec_float.begin());
+
+        //     std::string file_name = "/data/yocto_bak/analyse/dynamicDecode/post_embedding_output_6_lmdeploy.bin";
+        //     std::ofstream outfile(file_name, std::ios::binary);
+        //     if (outfile.is_open())
+        //     {   
+        //         std::cout << std::endl << "dumping to " << file_name << std::endl;
+        //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
+        //         outfile.close();
+        //     }
+        //     delete[] data_host;
+        // }
+
+        // exit(0);
     }
 
     if (input_tensors->isExist("stop_words_list")) {
