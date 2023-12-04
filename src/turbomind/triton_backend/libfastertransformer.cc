@@ -55,6 +55,10 @@
 #include "src/turbomind/macro.h"
 #include "src/turbomind/triton_backend/llama/LlamaTritonModel.h"
 #include "src/turbomind/triton_backend/llama/LlamaTritonModelInstance.h"
+#include "src/turbomind/triton_backend/star_coder/StarCoderTritonModel.h"
+#include "src/turbomind/triton_backend/star_coder/StarCoderTritonModelInstance.h"
+#include "src/turbomind/triton_backend/europa/EuropaTritonModel.h"
+#include "src/turbomind/triton_backend/europa/EuropaTritonModelInstance.h"
 #include "src/turbomind/triton_backend/transformer_triton_backend.hpp"
 #include "src/turbomind/utils/Tensor.h"
 #include "src/turbomind/utils/cuda_bf16_wrapper.h"
@@ -270,8 +274,21 @@ std::shared_ptr<AbstractTransformerModel> ModelState::ModelFactory(common::Trito
         else {
             ft_model = std::make_shared<LlamaTritonModel<float>>(tp, pp, custom_ar, model_dir);
         }
-    }
-    else {
+    } else if (model_type == "StarCoder") {
+        if (data_type == "fp16") {
+            ft_model = std::make_shared<StarCoderTritonModel<half>>(tp, pp, custom_ar, model_dir);
+        }
+        else {
+            ft_model = std::make_shared<StarCoderTritonModel<float>>(tp, pp, custom_ar, model_dir);
+        }
+    } else if (model_type == "StarCoderV2") {
+        if (data_type == "fp16") {
+            ft_model = std::make_shared<EuropaTritonModel<half>>(tp, pp, custom_ar, model_dir);
+        }
+        else {
+            ft_model = std::make_shared<EuropaTritonModel<float>>(tp, pp, custom_ar, model_dir);
+        }
+    } else {
         THROW_IF_BACKEND_MODEL_ERROR(
             TRITONSERVER_ErrorNew(TRITONSERVER_ERROR_UNSUPPORTED, ("Unknown model \"" + model_type + "\"").c_str()));
     }

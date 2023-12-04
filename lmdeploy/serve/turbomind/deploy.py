@@ -15,8 +15,9 @@ from sentencepiece import SentencePieceProcessor
 
 import lmdeploy
 from lmdeploy.model import MODELS
+from lmdeploy.turbomind.tokenizer import GPTTokenizer
 
-supported_formats = ['llama', 'hf', 'awq', 'qwen']
+supported_formats = ['llama', 'hf', 'awq', 'qwen', 'europa']
 
 
 def get_package_root_path():
@@ -247,6 +248,113 @@ def export(model_name: str,
         config.write(f)
     return True
 
+def export_europa(model_name: str,
+                  num_layer: int,
+                  norm_eps: float,
+                  kv_head_num: int,
+                  model_params: dict,
+                  tokenizer_path: str,
+                  out_dir: str,
+                  tp: int,
+                  size_per_head: int = 128,
+                  group_size: int = 0,
+                  weight_type: str = 'fp16',
+                  max_position_embeddings: int = 0,
+                  use_dynamic_ntk: int = 0,
+                  use_logn_attn: int = 0,
+                  rope_theta: float = 10000.0,
+                  tokenizer_info=tokenizer_info_sp):
+    """Export deploying information to a config file.
+
+    Args:
+        model_name (str): model's name
+        num_layer (int): the number of transformer blocks
+        norm_eps (float): norm epsilon
+        model_params (dict): parameters of a model
+        tokenizer_path (str): the tokenizer model's path
+        out_dir (str): the path of the output directory
+        tp (int): the number of tensor parallelism
+        size_per_head (int): the dimension of each head
+    """
+    out_dir = osp.join(out_dir, 'weights')
+    os.makedirs(out_dir, exist_ok=True)
+
+    def save_bin(param: torch.Tensor, name):
+        print(name, param.shape)
+        if param.dtype in [torch.float, torch.bfloat16]:
+            param = param.half()
+        param.contiguous().cpu().numpy().tofile(osp.join(out_dir, name))
+
+    attn_bias = True
+    inter_size = 1
+
+    word_embeddings = model_params['word_embeddings.weight']
+    _vocab_size, dim = word_embeddings.shape
+    head_num = dim // size_per_head
+    
+    # 此处应该有不满足条件的处理方式，详见export()方法
+    assert _vocab_size % tp == 0, \
+          f"Vocab size {_vocab_size} must be divisible by tp ({tp}). \
+            Please check your configuration."
+
+    # reverse the splitting axes since the weights are transposed above
+    # TODO(Yocto) : 此处应该是多卡推理的权重处理方式，此处暂时跳过，对比Llama后修改
+    for param_name, param_data in model_params.items():
+        save_bin(param_data, param_name)
+
+    assert inter_size > 0
+
+    # export config and save it to {out_dir}/config.ini
+    model = MODELS.get(model_name)()
+
+    vocab_dir = tokenizer_path[:tokenizer_path.rfind('/') + 1]
+    tokenizer = GPTTokenizer(vocab_dir=vocab_dir)
+    vocab_size = len(tokenizer)
+    bos_id = tokenizer.bos_id
+    eos_id = tokenizer.eos_id
+    assert _vocab_size >= vocab_size, \
+        f'different vocab size {_vocab_size} vs {vocab_size}'
+    # import pdb;pdb.set_trace()
+    cfg = dict(europa=dict(
+        model_name=model_name,
+        head_num=head_num,
+        kv_head_num=kv_head_num,
+        size_per_head=size_per_head,
+        vocab_size=_vocab_size,
+        num_layer=num_layer,
+        rotary_embedding=size_per_head,
+        rope_theta=rope_theta,
+        inter_size=inter_size,
+        norm_eps=norm_eps,
+        attn_bias=int(attn_bias),
+        start_id=bos_id,
+        end_id=eos_id,
+        weight_type=weight_type,
+        group_size=group_size,
+        # parameters for turbomind
+        max_batch_size=32,
+        max_context_token_num=4,
+        session_len=8192,
+        step_length=1,
+        cache_max_entry_count=48,
+        cache_chunk_size=1,
+        use_context_fmha=1,
+        quant_policy=0,
+        tensor_para_size=tp,
+        # extra attention params
+        max_position_embeddings=max_position_embeddings,
+        use_dynamic_ntk=int(use_dynamic_ntk),
+        use_logn_attn=int(use_logn_attn),
+    ))
+
+    config = configparser.ConfigParser()
+    for section, key_values in cfg.items():
+        config[section] = key_values
+
+    config_path = osp.join(out_dir, 'config.ini')
+    with open(config_path, 'w') as f:
+        config.write(f)
+    return True
 
 def merge_qkv(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, tp: int,
               dim: int):
@@ -912,6 +1020,180 @@ def deploy_qwen(model_name: str, model_path: str, tokenizer_path: str,
                   rope_theta=rope_theta,
                   tokenizer_info=tokenizer_info_qwen)
 
+# 添加新的适配策略以适配StarCoder
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+def merge_q_kv(q: torch.Tensor, k_v: torch.Tensor, tp: int, dim: int):
+    def reshape(x):
+        return x.view(x.size(0), tp, -1) if dim == 2 else x.view(tp, -1)
+    qkv = torch.cat((reshape(q), reshape(k_v)), dim=-1)
+
+    # (input_dim, head_num + 2 * kv_head_num)
+    return qkv.view(q.size(0), -1) if dim == 2 else qkv.view(-1)
+
+def deploy_star_coder(model_name: str, model_path: str, tokenizer_path: str,
+                      triton_models_path: str, tp: int):
+    """Deploy a model with huggingface transformers' format.
+
+    Args:
+        model_name (str): the name of the to-be-deployed model
+        model_path (str): the path of the directory where the model weight
+          files are
+        tokenizer_path (str): the path of the tokenizer model path
+        triton_models_path (str): the path of the exported triton models
+        tp (int): the number of tensor parallelism
+    """
+    if osp.exists(tokenizer_path):
+        shutil.copy(tokenizer_path,
+                    osp.join(triton_models_path, 'tokenizer/tokenizer.model'))
+        with get_package_root_path() as root_path:
+            shutil.copy(osp.join(root_path, 'turbomind/tokenizer.py'),
+                        osp.join(triton_models_path, 'tokenizer'))
+    else:
+        print(f'tokenizer model {tokenizer_path} does not exist')
+        return False
+    # read model arguments from params.json
+    try:
+        params_path = osp.join(model_path, 'config.json')
+        with open(params_path) as f:
+            model_arg = json.load(f)
+            num_layer = model_arg['n_layer']
+            norm_eps = model_arg['layer_norm_epsilon']
+            head_num = model_arg.get('n_head', 48)
+            kv_head_num = model_arg.get('n_kv_heads', 1)
+    except Exception as e:
+        print(f'get "n_layers" and "norm_eps" from {params_path} failed: {e}')
+        return False
+
+    # convert weights from llama to turbomind format
+    checkpoints = []
+    for pattern in ['*GPT.pth', '*GPT.pt']:
+        checkpoints += sorted(Path(model_path).glob(pattern))
+    print(checkpoints)
+    n_ckpt = len(checkpoints)
+    model_params = {}
+    
+    def get_param(_name, _size):
+        if _name in ['word_embeddings', 'position_embeddings']:
+            _name += '.weight'
+        print(_name, _size)
+        if _name not in model_params:
+            model_params[_name] = torch.zeros(_size,
+                                              dtype=torch.float16,
+                                              device='cpu')
+        return model_params[_name]
+
+    for i, ckpt_path in enumerate(checkpoints):
+        ckpt = torch.load(ckpt_path, map_location='cpu')['module']['language_model']
+        module = ckpt['transformer']
+        for param_name, param_data in module.items():
+            param = get_param(param_name, param_data.size())
+            param.data = param_data
+        module = ckpt['embedding']
+        for param_name, param_data in module.items():
+            param = get_param(param_name, param_data['weight'].size())
+            param.data = param_data['weight']
+        del ckpt
+            
+    for name, param in model_params.items():
+        # transpose all weights as TurboMind is expecting column-major
+        # weights: (output_dims, input_dims) -> (input_dims, output_dims)
+        if name not in ['word_embeddings.weight', 'position_embeddings.weight']:
+            key = name.split('.')[-1]
+            if key == "weight":
+                param.data = param.data.t()
+
+    # concat qkv projection
+    for t in ['weight', 'bias']:
+        for i in range(1000):
+            _qkv = [
+                f'layers.{i}.attention.{k}.{t}' for k in ['query', 'key_value']
+            ]
+            try:
+                qkv = tuple(map(model_params.pop, _qkv))
+            except KeyError:
+                break
+            # concat by heads
+            qkv = merge_q_kv(*qkv, tp, dim=2 if t == 'weight' else 1)
+            print(f'layers.{i}.attention.qkv.{t}', qkv.shape)
+            model_params[f'layers.{i}.attention.qkv.{t}'] = qkv
+
+    assert i == 0 or num_layer == i, f'miss matched layers: {num_layer} vs {i}'
+
+    return export(model_name, num_layer, norm_eps, kv_head_num, model_params,
+                  tokenizer_path, triton_models_path, tp)
+
+def deploy_europa(model_name: str, model_path: str, tokenizer_path: str,
+                         triton_models_path: str, tp: int):
+    """Deploy a model with huggingface transformers' format.
+
+    Args:
+        model_name (str): the name of the to-be-deployed model
+        model_path (str): the path of the directory where the model weight
+          files are
+        tokenizer_path (str): the path of the tokenizer model path
+        triton_models_path (str): the path of the exported triton models
+        tp (int): the number of tensor parallelism
+    """
+    if osp.exists(tokenizer_path):
+        shutil.copy(tokenizer_path,
+                    osp.join(triton_models_path, 'tokenizer/tokenizer.model'))
+        with get_package_root_path() as root_path:
+            shutil.copy(osp.join(root_path, 'turbomind/tokenizer.py'),
+                        osp.join(triton_models_path, 'tokenizer'))
+    else:
+        print(f'tokenizer model {tokenizer_path} does not exist')
+        return False
+    # read model arguments from params.json
+    try:
+        params_path = osp.join(model_path, 'config.json')
+        with open(params_path) as f:
+            model_arg = json.load(f)
+            num_layer = model_arg['n_layer']
+            norm_eps = model_arg['layer_norm_epsilon']
+            head_num = model_arg.get('n_head', 48)
+            kv_head_num = model_arg.get('n_kv_heads', 8)
+    except Exception as e:
+        print(f'get "n_layers" and "norm_eps" from {params_path} failed: {e}')
+        return False
+
+    checkpoints = ["/data3/aix2_base_v2/AixEuropaBaseV2"]
+    print(checkpoints)
+    n_ckpt = len(checkpoints)
+    model_params = {}
+    
+    def get_param(_name, _size):
+        if _name in ['word_embeddings', 'position_embeddings']:
+            _name += '.weight'
+        print(_name, _size)
+        if _name not in model_params:
+            model_params[_name] = torch.zeros(_size,
+                                              dtype=torch.float16,
+                                              device='cpu')
+        return model_params[_name]
+
+    for i, ckpt_path in enumerate(checkpoints):
+        ckpt = torch.load(ckpt_path, map_location='cpu')['module']['language_model']        
+        module = ckpt['transformer']
+        for param_name, param_data in module.items():
+            param = get_param(param_name, param_data.size())
+            param.data = param_data
+        module = ckpt['embedding']
+        for param_name, param_data in module.items():
+            param = get_param(param_name, param_data['weight'].size())
+            param.data = param_data['weight']
+        del ckpt
+        
+    for name, param in model_params.items():
+        # transpose all weights as TurboMind is expecting column-major
+        # weights: (output_dims, input_dims) -> (input_dims, output_dims)
+        if name not in ['word_embeddings.weight', 'position_embeddings.weight']:
+            key = name.split('.')[-1]
+            if key == "weight":
+                param.data = param.data.t()
+
+    return export_europa(model_name, num_layer, norm_eps, kv_head_num, model_params,
+                         tokenizer_path, triton_models_path, tp)
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def pack_model_repository(workspace_path: str):
     """package the model repository.
@@ -964,7 +1246,6 @@ def main(model_name: str,
     assert model_name in MODELS.module_dict.keys(), \
         f"'{model_name}' is not supported. " \
         f'The supported models are: {MODELS.module_dict.keys()}'
-
     if model_format is None:
         model_format = 'qwen' if model_name == 'qwen-7b' else 'hf'
 
@@ -997,6 +1278,12 @@ def main(model_name: str,
     elif model_format == 'qwen':
         res = deploy_qwen(model_name, model_path, tokenizer_path,
                           triton_models_path, tp)
+    elif model_format == 'star_coder':
+        res = deploy_star_coder(model_name, model_path, tokenizer_path,
+                                triton_models_path, tp)
+    elif model_format == 'europa':
+        res = deploy_europa(model_name, model_path, tokenizer_path,
+                            triton_models_path, tp)
 
     # update `tensor_para_size` in `triton_models/interactive/config.pbtxt`
     with open(osp.join(triton_models_path, 'interactive/config.pbtxt'),

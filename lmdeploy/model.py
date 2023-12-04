@@ -568,38 +568,25 @@ class CodeLlama(Llama2):
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 @MODELS.register_module(name='star_coder')
 class StarCoder(BaseModel):
-    """Chat template of StarCoder model."""
-
-    def __init__(
-            self,
-            b_inst='[INST]',
-            e_inst='[/INST]',
-            b_sys='<<SYS>>\n',
-            e_sys='\n<</SYS>>\n\n',
-            system="""""",
-            session_len=8192,
-            **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.b_inst = b_inst
-        self.e_inst = e_inst
-        self.b_sys = b_sys
-        self.e_sys = e_sys
-        self.default_sys_prompt = system
-        self.session_len = session_len
 
     def decorate_prompt(self, prompt, sequence_start=True):
             return prompt
 
     def messages2prompt(self, messages, sequence_start=True):
-        """Return the prompt that is concatenated with other elements in the
-        chat template.
+            return messages
 
-        Args:
-            messages (str | List): user's input prompt
-        Returns:
-            str: the concatenated prompt
-        """
-        return messages
+@MODELS.register_module(name='AixEuropaBaseV2')
+class Europa(BaseModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def decorate_prompt(self, prompt, sequence_start=True):
+            return prompt
+
+    def messages2prompt(self, messages, sequence_start=True):
+            return messages
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 

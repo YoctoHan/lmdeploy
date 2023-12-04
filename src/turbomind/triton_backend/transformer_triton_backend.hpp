@@ -302,6 +302,7 @@ struct AbstractTransformerModelInstance {
 struct AbstractTransformerModel {
     static std::shared_ptr<AbstractTransformerModel> createLlamaModel(std::string model_dir);
     static std::shared_ptr<AbstractTransformerModel> createStarCoderModel(std::string model_dir);
+    static std::shared_ptr<AbstractTransformerModel> createEuropaModel(std::string model_dir);
 
     virtual std::pair<std::vector<ft::NcclParam>, std::vector<ft::NcclParam>>
     createNcclParams(const int node_id, const int device_id_start = 0, const bool multi_node = false);

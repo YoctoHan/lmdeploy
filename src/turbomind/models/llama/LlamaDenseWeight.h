@@ -101,4 +101,28 @@ struct StarCoderFfnWeight {
     StarCoderDenseWeight<T> dense_4h_to_h;
 };
 
+template<typename T>
+struct EuropaDenseWeight {
+    size_t     input_dims;
+    size_t     output_dims;
+    void*      kernel;
+    WeightType type;
+    T*         bias;
+    T*         scales_and_zeros;
+    int        group_size;
+};
+
+template<typename T>
+struct EuropaAttentionWeight {
+    EuropaDenseWeight<T> qkv;
+    EuropaDenseWeight<T> output;
+    std::vector<float>  past_kv_scale;
+};
+
+template<typename T>
+struct EuropaFfnWeight {
+    EuropaDenseWeight<T> dense_h_to_4h;
+    EuropaDenseWeight<T> dense_4h_to_h;
+};
+
 }  // namespace turbomind

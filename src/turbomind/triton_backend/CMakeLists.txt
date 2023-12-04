@@ -35,6 +35,7 @@ install(TARGETS TransformerTritonBackend DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_subdirectory(llama)
 add_subdirectory(star_coder)
+add_subdirectory(europa)
 
 # Needn't build triton backend on windows
 if (MSVC)

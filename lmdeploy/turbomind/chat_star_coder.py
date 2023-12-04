@@ -71,7 +71,7 @@ def get_gen_param(cap,
     return gen_param
 
 
-def main():
+def main(model_path, vocab_dir):
     """An example to perform model inference through the command line
     interface.
 
@@ -86,18 +86,15 @@ def main():
         stream_output (bool): indicator for streaming output or not
         **kwarg (dict): other arguments for initializing model's chat template
     """
-    model_path = "./star_coder_workspace"
     session_id = 1
     cap = 'completion'
     sys_instruct = None
     tp = 1
     stream_output = True
-    
-    tokenizer = GPTTokenizer(vocab_dir="/data3/StarCoderBase/")
+    tokenizer = GPTTokenizer(vocab_dir)
     tm_model = tm.TurboMind(model_path, eos_id = tokenizer.eos_id, tp=tp)
     generator = tm_model.create_instance()
 
-    # import pdb;pdb.set_trace()
 
     nth_round = 1
     step = 0
@@ -110,7 +107,8 @@ def main():
     print(f'session {session_id}')
 
     while True:
-        prompt = input_prompt(model_name)
+        # prompt = input_prompt(model_name)
+        prompt = ""
         if prompt == 'exit':
             exit(0)
         elif prompt == 'end':
@@ -127,7 +125,20 @@ def main():
             step = 0
             seed = random.getrandbits(64)
         else:
-            prompt = model.get_prompt(prompt, nth_round == 1)
+            # prompt = model.get_prompt(prompt, nth_round == 1)
+            prompt = """import dataclasses
+import os
+import os.path as osp
+import random
+import time
+
+import fire
+
+from lmdeploy import turbomind as tm
+from lmdeploy.model import MODELS
+from lmdeploy.turbomind.tokenizer import Tokenizer, GPTTokenizer
+
+os.environ['TM_LOG_LEVEL'] = 'INFO'"""
             input_ids = tokenizer.encode(prompt)
             if step + len(input_ids) >= tm_model.session_len:
                 print('WARNING: exceed session max length.'
@@ -137,7 +148,7 @@ def main():
             gen_param = get_gen_param(cap, model.sampling_param, nth_round,
                                       step)
             
-            import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
 
             print(f'{prompt} ', end='', flush=True)
             print()

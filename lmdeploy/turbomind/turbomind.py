@@ -99,7 +99,9 @@ class TurboMind:
             # StarCoder
             elif 'star_coder' in parser:
                 section_name = 'star_coder'
-
+            # StarCoder
+            elif 'europa' in parser:
+                section_name = 'europa'
             if len(section_name) > 0:
                 tp_cfg = parser.getint(section_name, 'tensor_para_size')
                 self.session_len = parser.getint(section_name, 'session_len')
@@ -107,9 +109,11 @@ class TurboMind:
                     get_logger('turbomind').info(
                         f'found tp={tp_cfg} in config.ini.')
                     self.gpu_count = tp_cfg
+            # import pdb;pdb.set_trace()
             self.model_name = parser.get(section_name, 'model_name')
             data_type = parser.get(section_name, 'weight_type')
         model = MODELS.get(self.model_name)()
+        # TODO(Yocto) : 这个逻辑应该需要完善，模型在预测出了停止词时可以直接停止，防止浪费时间
         self.stop_words = _stop_words(model.stop_words)
 
         # params
@@ -119,8 +123,16 @@ class TurboMind:
 
         # create model
         weight_dir = osp.join(model_path, 'triton_models', 'weights')
-        model = _tm.AbstractTransformerModel.create_star_coder_model(
-            weight_dir, tensor_para_size=self.gpu_count, data_type=data_type)
+        if self.model_name == "AixEuropaBaseV2":
+            model = _tm.AbstractTransformerModel.create_europa_model(
+                weight_dir, tensor_para_size=self.gpu_count, data_type=data_type)
+        elif self.model_name == "StarCoderBase":           
+            model = _tm.AbstractTransformerModel.create_star_coder_model(
+                weight_dir, tensor_para_size=self.gpu_count, data_type=data_type)
+        else :
+            model = _tm.AbstractTransformerModel.create_llama_model(
+                weight_dir, tensor_para_size=self.gpu_count, data_type=data_type)
+            
         self.model = model
         self.nccl_params = model.create_nccl_params(self.node_id)
         torch.cuda.synchronize()

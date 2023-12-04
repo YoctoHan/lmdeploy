@@ -14,3 +14,4 @@
 
 add_subdirectory(llama)
 add_subdirectory(star_coder)
+add_subdirectory(europa)

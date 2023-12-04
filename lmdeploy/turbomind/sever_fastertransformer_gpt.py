@@ -117,7 +117,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
 
         self.output = self.generator.stream_infer(
                         session_id=session_id,
-                        input_ids=[req],
+                        input_ids=[tokens],
                         stream_output=stream_output,
                         **dataclasses.asdict(gen_param),
                         ignore_eos=False,
@@ -184,81 +184,26 @@ def serve():
 
 
 
-def main():
-    model_path = "./star_coder_workspace"
-    vocab_dir="/data3/StarCoderBase/"
-
+def main(model_path, vocab_dir):
+    # model_path = "./star_coder_workspace"
+    # vocab_dir="/data3/StarCoderBase/"
     servicer = ModelServicer(model_path, vocab_dir)
     input_str = """import copy
 import os
 import queue
 import sys
 import hashlib
-import threading
-from datetime import datetime
-
-from lang_parser.factory import create_language_parser, is_ext_available, LANGUAGE_TAG, LANG2EXT
-from lang_parser.python_parser import PythonParser
-from lang_parser.prompts_parser import Prompts
-from lang_parser.prompts_chat_parser import ChatPrompts
-from megatron import print_rank_0, get_args
-from megatron.utils import is_ampere, minimal_format_code
-from megatron.core import tensor_parallel, parallel_state
-from megatron.initialize import initialize_megatron
-from sess_megatron_gpt import Predictor
-
-sys.path.insert(0, os.path.abspath("./"))
-import json
-import time
-import requests
-import torch
-import numpy as np
-import logging
-from typing import List
-from flask import Flask, jsonify, request, render_template, make_response
-from concurrent.futures import ProcessPoolExecutor
-
-app = Flask(__name__)
-DEBUG_PROCESS = True
-DEBUG_PREDICTION = False
-DEBUG_CANDIDATES = False
-
-
-@app.before_request
-def before_request():
-    print('开始请求: ', request.path, ', 时间: ', datetime.now())
-
-
-@app.after_request
-def after_request(response):
-    print('结束请求: ', request.path, ', 时间: ', datetime.now())
-    print('返回状态: ', response.status)
-    return response
-
-
-class AjaxFilter(logging.Filter):
-    def filter(self, record):
-        message = record.getMessage()
-        rand = np.random.uniform()
-        if "GET" in message:
-            return False
-        if "POST /get_results" in message and rand > 0.8:
-            return False
-        return True
-
-
-log = logging.getLogger('werkzeug')
-log.addFilter(AjaxFilter())"""
+import threading"""
 
     input_ids = servicer.tokenizer.encode(input_str)
-    servicer.predict_(input_ids, None)
+    servicer.CreatePrediction(input_ids, "", "", 0)
 
     past_times = []
     start_time = time.time()
     tensor_minus_one = torch.tensor(-1)
 
     while(True):
-        res = servicer.get_next_output()                
+        res = servicer.GetResult()                
         # decode res
         response = servicer.tokenizer.decode(res.tolist(), offset=0)
         response = valid_str(response)
