@@ -847,6 +847,266 @@ struct Vec_t<__nv_bfloat16> {
 };
 #endif
 
+// /// TODO: support batch step offset
+// template<typename T, bool PREFIX_PROMPT>
+// __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
+//                                                    T* k_buf,
+//                                                    T* v_buf,
+//                                                    T* QKV,
+//                                                    const T* __restrict qkv_bias,
+//                                                    const int* padding_offset,
+//                                                    const int* history_length,
+//                                                    const int* input_length,
+//                                                    int        batch_size,
+//                                                    int        seq_len,
+//                                                    int        head_num,
+//                                                    int        kv_head_num,
+//                                                    int        size_per_head,
+//                                                    int        rotary_embedding_dim,
+//                                                    float      rotary_embedding_base,
+//                                                    int        max_position_embeddings,
+//                                                    bool       use_dynamic_ntk,
+//                                                    bool       use_logn_attn)
+// {   // This kernel will split QKV and add bias to the corresponding positions. 
+//     // The input dimensions of QKV are [token_num, qkv_head_num, size_per_head], 
+//     // and the output dimensions are Q[token_num,  q_head_num, size_per_head],
+//     //                               K[token_num, kv_head_num, size_per_head], 
+//     //                               V[token_num, kv_head_num, size_per_head].
+//     extern __shared__ __align__(sizeof(float2)) char smem_[];  // align on largest vector type
+
+//     constexpr int vec_size         = Vec_t<T>::size;
+//     using Vec_t                    = typename Vec_t<T>::Type;
+//     const int token_idx            = blockIdx.x;
+//     const int token_padding_offset = (padding_offset == nullptr || token_idx < 0) ? 0 : padding_offset[token_idx];
+//     const int tgt_token_idx        = token_idx + token_padding_offset;
+
+//     const int batch_idx = tgt_token_idx / seq_len;
+//     const int seq_idx   = tgt_token_idx % seq_len;
+
+//     const int group_size = head_num / kv_head_num;
+//     const int src_group_size = group_size + 2;
+//     const int head_idx = blockIdx.y;
+//     const int group_idx = blockIdx.y / group_size;
+//     const int group_idy = blockIdx.y % group_size;
+//     const int tidx     = threadIdx.x;
+
+//     const bool is_masked = tidx * vec_size >= size_per_head;
+
+//     const int hidden_idx = group_idx * src_group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
+
+//     const int q_kv_head_num = head_num + 2 * kv_head_num;
+
+//     const int k_offset = group_size * size_per_head;
+//     const int v_offset = k_offset + size_per_head;
+
+//     const int src_q_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx;
+//     const int src_k_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + k_offset;
+//     const int src_v_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + v_offset;
+
+//     // if (blockIdx.x != 0) {
+//     //     return;
+//     // }
+//     // if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 8) {
+//     //     int base = 1024 + 256;
+//     //     printf("\n src_q_idx = %d \n", src_q_idx);
+//     //     printf("\n head_num = %d \n", head_num);
+//     //     printf("\n kv_head_num = %d \n", kv_head_num);
+//     //     printf("\n q_kv_head_num = %d \n", q_kv_head_num);
+//     //     for (int index = 0; index < 16; index++) {
+//     //         float value = __half2float(((half *)QKV)[base + index]);
+//     //         float bias = __half2float(((half *)qkv_bias)[base + index]);
+//     //         float result = value + bias;
+
+//     //         printf("\n %8.5f + %8.5f = %8.5f", value, bias, result);
+//     //     }
+//     // }
+
+//     Vec_t q, k, v;
+//     Vec_t q_bias, k_bias, v_bias;
+    
+//     // load Q and apply bias
+//     if (!is_masked) {
+//         q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
+//         if (qkv_bias) {
+//             q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
+//             q      = mmha::add(q, q_bias);
+//         }
+//     }
+
+//     // load KV and apply bias
+//     if (!is_masked && group_idy < 1) {
+//         k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
+//         v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
+//         if (qkv_bias) {
+//             k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
+//             v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
+//             k      = mmha::add(k, k_bias);
+//             v      = mmha::add(v, v_bias);
+//         }
+//     }
+
+//     // const int dest_q_idx = token_idx * kv_head_num * size_per_head + head_idx * size_per_head + tidx * vec_size;
+//     const int dest_q_idx = token_idx * head_num * size_per_head + 
+//                            group_idx * group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
+//     const int dest_kv_idx = token_idx * kv_head_num * size_per_head + group_idx * size_per_head + tidx * vec_size;
+
+//     if (!is_masked) {
+//         *reinterpret_cast<Vec_t*>(&q_buf[dest_q_idx]) = q;
+//         if (group_idy < 1) {
+//             *reinterpret_cast<Vec_t*>(&k_buf[dest_kv_idx]) = k;
+//             *reinterpret_cast<Vec_t*>(&v_buf[dest_kv_idx]) = v;
+//         }
+//     }
+// }
+
+// /// TODO: support batch step offset
+// template<typename T, bool PREFIX_PROMPT>
+// __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
+//                                                    T* k_buf,
+//                                                    T* v_buf,
+//                                                    T* QKV,
+//                                                    const T* __restrict qkv_bias,
+//                                                    const int* padding_offset,
+//                                                    const int* history_length,
+//                                                    const int* input_length,
+//                                                    int        batch_size,
+//                                                    int        seq_len,
+//                                                    int        head_num,
+//                                                    int        kv_head_num,
+//                                                    int        size_per_head,
+//                                                    int        rotary_embedding_dim,
+//                                                    float      rotary_embedding_base,
+//                                                    int        max_position_embeddings,
+//                                                    bool       use_dynamic_ntk,
+//                                                    bool       use_logn_attn)
+// {   // This kernel will split QKV and add bias to the corresponding positions. 
+//     // The input dimensions of QKV are [token_num, qkv_head_num, size_per_head], 
+//     // and the output dimensions are Q[token_num,  q_head_num, size_per_head],
+//     //                               K[token_num, kv_head_num, size_per_head], 
+//     //                               V[token_num, kv_head_num, size_per_head].
+//     extern __shared__ __align__(sizeof(float2)) char smem_[];  // align on largest vector type
+
+//     constexpr int vec_size         = Vec_t<T>::size;
+//     using Vec_t                    = typename Vec_t<T>::Type;
+//     const int token_idx            = blockIdx.x;
+//     const int token_padding_offset = (padding_offset == nullptr || token_idx < 0) ? 0 : padding_offset[token_idx];
+//     const int tgt_token_idx        = token_idx + token_padding_offset;
+
+//     const int batch_idx = tgt_token_idx / seq_len;
+//     const int seq_idx   = tgt_token_idx % seq_len;
+
+//     const int group_size = head_num / kv_head_num;
+//     const int src_group_size = group_size + 2;
+//     const int head_idx = blockIdx.y;
+//     const int group_idx = blockIdx.y / group_size;
+//     const int group_idy = blockIdx.y % group_size;
+//     const int tidx     = threadIdx.x;
+
+//     const bool is_masked = tidx * vec_size >= size_per_head;
+
+//     const int hidden_idx = group_idx * src_group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
+
+//     const int q_kv_head_num = head_num + 2 * kv_head_num;
+
+//     const int k_offset = group_size * size_per_head;
+//     const int v_offset = k_offset + size_per_head;
+
+//     const int src_q_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx;
+//     const int src_k_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + k_offset;
+//     const int src_v_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + v_offset;
+
+//     if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+//         printf("\n head_idx = %d \n", int(head_idx));
+//         printf("\n src_q_idx = %d \n", int(src_q_idx));
+//         printf("\n src_k_idx = %d \n", int(src_k_idx));
+//         printf("\n src_v_idx = %d \n", int(src_v_idx));
+//     }
+
+//     Vec_t q, k, v;
+//     Vec_t q_bias, k_bias, v_bias;
+
+//     // load Q and apply bias
+//     if (!is_masked) {
+//         q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
+//         if (qkv_bias) {
+//             q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
+//             q      = mmha::add(q, q_bias);
+//         }
+//     }
+
+//     // load KV and apply bias
+//     if (!is_masked && group_idy < 1) {
+//         k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
+//         v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
+//         if (qkv_bias) {
+//             if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+//                 half* k_ptr = reinterpret_cast<half*>(&k);
+//                 half* v_ptr = reinterpret_cast<half*>(&v);
+//                 float k_value_1 = __half2float(k_ptr[0]);
+//                 float k_value_2 = __half2float(k_ptr[1]);
+//                 float v_value_1 = __half2float(v_ptr[0]);
+//                 float v_value_2 = __half2float(v_ptr[1]);
+
+//                 printf("\n k_value_1 = %f \n", k_value_1);
+//                 printf("\n k_value_2 = %f \n", k_value_2);
+//                 printf("\n v_value_1 = %f \n", v_value_1);
+//                 printf("\n v_value_2 = %f \n", v_value_2);
+//             }
+//              __syncthreads();
+//             k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
+//             v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
+//             k      = mmha::add(k, k_bias);
+//             v      = mmha::add(v, v_bias);
+//             if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+//                 half* k_ptr = reinterpret_cast<half*>(&k);
+//                 half* v_ptr = reinterpret_cast<half*>(&v);
+//                 half* k_bias_ptr = reinterpret_cast<half*>(&k_bias);
+//                 half* v_bias_ptr = reinterpret_cast<half*>(&v_bias);
+
+//                 float k_value_1 = __half2float(k_ptr[0]);
+//                 float k_value_2 = __half2float(k_ptr[1]);
+//                 float v_value_1 = __half2float(v_ptr[0]);
+//                 float v_value_2 = __half2float(v_ptr[1]);
+//                 float k_bias_value_1 = __half2float(k_bias_ptr[0]);
+//                 float k_bias_value_2 = __half2float(k_bias_ptr[1]);
+//                 float v_bias_value_1 = __half2float(v_bias_ptr[0]);
+//                 float v_bias_value_2 = __half2float(v_bias_ptr[1]);
+
+//                 printf("\n k_bias_value_1 = %f \n", k_bias_value_1);
+//                 printf("\n k_bias_value_2 = %f \n", k_bias_value_2);
+//                 printf("\n v_bias_value_1 = %f \n", v_bias_value_1);
+//                 printf("\n v_bias_value_2 = %f \n", v_bias_value_2);
+
+//                 printf("\n k_value_1 = %f \n", k_value_1);
+//                 printf("\n k_value_2 = %f \n", k_value_2);
+//                 printf("\n v_value_1 = %f \n", v_value_1);
+//                 printf("\n v_value_2 = %f \n", v_value_2);
+//             }
+
+//         }
+//     }
+    
+//     // const int dest_q_idx = token_idx * head_num * size_per_head + 
+//     //                        group_idx * group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
+//     // const int dest_kv_idx = token_idx * kv_head_num * size_per_head + group_idx * size_per_head + tidx * vec_size;
+
+//     const int dest_q_idx = head_idx * seq_len * size_per_head + seq_idx * size_per_head + tidx * vec_size;
+//     const int dest_kv_idx = group_idx * seq_len * size_per_head + seq_idx * size_per_head + tidx * vec_size;
+    
+//     if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+//         printf("\n dest_q_idx = %d \n", int(dest_q_idx));
+//         printf("\n dest_kv_idx = %d \n", int(dest_kv_idx));
+//     }
+
+//     if (!is_masked) {
+//         *reinterpret_cast<Vec_t*>(&q_buf[dest_q_idx]) = q;
+//         if (group_idy < 1) {
+//             *reinterpret_cast<Vec_t*>(&k_buf[dest_kv_idx]) = k;
+//             *reinterpret_cast<Vec_t*>(&v_buf[dest_kv_idx]) = v;
+//         }
+//     }
+// }
+
 /// TODO: support batch step offset
 template<typename T, bool PREFIX_PROMPT>
 __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
@@ -867,13 +1127,11 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
                                                    int        max_position_embeddings,
                                                    bool       use_dynamic_ntk,
                                                    bool       use_logn_attn)
-{
-    // This kernel add bias to QKV, which has shape [batch_size, seq_len, 3, head_num, size_per_head], and
-    // QKV split to 3 split buffer q, k, v and transpose them to [batch_size, head_num, seq_len, size_per_head].
-    // For q and k, also apply the rotary embedding.
-
-    // NOTE: QKV src shape (batch_size, seq_len, 3, head_num, size_per_head)
-    //  QKV dst shape (3, batch_size, head_num, seq_len, size_per_head)
+{   // This kernel will split QKV and add bias to the corresponding positions. 
+    // The input dimensions of QKV are [token_num, qkv_head_num, size_per_head], 
+    // and the output dimensions are Q[token_num,  q_head_num, size_per_head],
+    //                               K[token_num, kv_head_num, size_per_head], 
+    //                               V[token_num, kv_head_num, size_per_head].
     extern __shared__ __align__(sizeof(float2)) char smem_[];  // align on largest vector type
 
     constexpr int vec_size         = Vec_t<T>::size;
@@ -885,147 +1143,117 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T* q_buf,
     const int batch_idx = tgt_token_idx / seq_len;
     const int seq_idx   = tgt_token_idx % seq_len;
 
+    const int group_size = head_num / kv_head_num;
+    const int src_group_size = group_size + 2;
     const int head_idx = blockIdx.y;
+    const int group_idx = blockIdx.y / group_size;
+    const int group_idy = blockIdx.y % group_size;
     const int tidx     = threadIdx.x;
-
-    const int total_seq_len = seq_len;
 
     const bool is_masked = tidx * vec_size >= size_per_head;
 
-    const int hidden_idx = head_idx * size_per_head + tidx * vec_size;
+    const int hidden_idx = group_idx * src_group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
 
     const int q_kv_head_num = head_num + 2 * kv_head_num;
 
-    const int k_offset = head_num * size_per_head;
-    const int v_offset = k_offset + kv_head_num * size_per_head;
+    const int k_offset = group_size * size_per_head;
+    const int v_offset = k_offset + size_per_head;
 
-    // src QKV: [batch, time, q_kv_head_num, hidden]
     const int src_q_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx;
     const int src_k_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + k_offset;
     const int src_v_idx = token_idx * q_kv_head_num * size_per_head + hidden_idx + v_offset;
+
+    if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+        printf("\n head_idx = %d \n", int(head_idx));
+        printf("\n src_q_idx = %d \n", int(src_q_idx));
+        printf("\n src_k_idx = %d \n", int(src_k_idx));
+        printf("\n src_v_idx = %d \n", int(src_v_idx));
+    }
 
     Vec_t q, k, v;
     Vec_t q_bias, k_bias, v_bias;
 
     // load Q and apply bias
-    // if (!is_masked) {
-    //     q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
-    //     if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
-    //         half* h_ptr = reinterpret_cast<half*>(&q);
-    //         float h1 = __half2float(h_ptr[0]);
-    //         float h2 = __half2float(h_ptr[1]);
-
-    //         printf("q1: %f, q2: %f\n", h1, h2);
-    //     }
-    //     if (qkv_bias) {
-    //         q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
-    //         if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
-    //             half* h_ptr = reinterpret_cast<half*>(&q_bias);
-    //             float h1 = __half2float(h_ptr[0]);
-    //             float h2 = __half2float(h_ptr[1]);
-
-    //             printf("q_bias1: %f, q_bias2: %f\n", h1, h2);
-    //         }
-    //         q      = mmha::add(q, q_bias);
-    //         if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 1) {
-    //             half* h_ptr = reinterpret_cast<half*>(&q);
-    //             float h1 = __half2float(h_ptr[0]);
-    //             float h2 = __half2float(h_ptr[1]);
-
-    //             printf("q1: %f, q2: %f\n", h1, h2);
-    //         }
-    //     }
-    // }
     if (!is_masked) {
-        // q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
-        float q_0, q_1;
-        q_0 = QKV[src_q_idx];
-        q_1 = QKV[src_q_idx + 1];
-        __half results[2];
+        q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
         if (qkv_bias) {
-            // q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
-            float bias_0, bias_1;
-            bias_0 = qkv_bias[hidden_idx];
-            bias_1 = qkv_bias[hidden_idx + 1];
-            // q      = mmha::add(q, q_bias);
-            results[0] = __float2half(q_0 + bias_0);
-            results[1] = __float2half(q_1 + bias_1); 
-            q =  *reinterpret_cast<const Vec_t*>(&results[0]);
+            q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
+            q      = mmha::add(q, q_bias);
         }
     }
 
     // load KV and apply bias
-    if (!is_masked && head_idx < kv_head_num) {
-        // k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
-        // v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
-        float x_0, x_1, bias_0, bias_1;
-        __half results[2];
-        x_0 = QKV[src_k_idx];
-        x_1 = QKV[src_k_idx + 1];
+    if (!is_masked && group_idy < 1) {
+        k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
+        v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
         if (qkv_bias) {
-            // k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
-            // v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
-            bias_0 = qkv_bias[hidden_idx + k_offset];
-            bias_1 = qkv_bias[hidden_idx + k_offset + 1];
-            // k      = mmha::add(k, k_bias);
-            // v      = mmha::add(v, v_bias);
-            results[0] = __float2half(x_0 + bias_0);
-            results[1] = __float2half(x_1 + bias_1); 
-            k =  *reinterpret_cast<const Vec_t*>(&results[0]);
-        }
-        x_0 = QKV[src_v_idx];
-        x_1 = QKV[src_v_idx + 1];
-        if (qkv_bias) {
-            bias_0 = qkv_bias[hidden_idx + v_offset];
-            bias_1 = qkv_bias[hidden_idx + v_offset + 1];
-            results[0] = __float2half(x_0 + bias_0);
-            results[1] = __float2half(x_1 + bias_1); 
-            v =  *reinterpret_cast<const Vec_t*>(&results[0]);
-        }
+            if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+                half* k_ptr = reinterpret_cast<half*>(&k);
+                half* v_ptr = reinterpret_cast<half*>(&v);
+                float k_value_1 = __half2float(k_ptr[0]);
+                float k_value_2 = __half2float(k_ptr[1]);
+                float v_value_1 = __half2float(v_ptr[0]);
+                float v_value_2 = __half2float(v_ptr[1]);
 
-    }
+                printf("\n k_value_1 = %f \n", k_value_1);
+                printf("\n k_value_2 = %f \n", k_value_2);
+                printf("\n v_value_1 = %f \n", v_value_1);
+                printf("\n v_value_2 = %f \n", v_value_2);
+            }
+             __syncthreads();
+            k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
+            v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
+            k      = mmha::add(k, k_bias);
+            v      = mmha::add(v, v_bias);
+            if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+                half* k_ptr = reinterpret_cast<half*>(&k);
+                half* v_ptr = reinterpret_cast<half*>(&v);
+                half* k_bias_ptr = reinterpret_cast<half*>(&k_bias);
+                half* v_bias_ptr = reinterpret_cast<half*>(&v_bias);
 
-    const int history_len = history_length[batch_idx];
-    const int context_len = history_len + input_length[batch_idx];
-    const int timestep    = history_len + seq_idx;
+                float k_value_1 = __half2float(k_ptr[0]);
+                float k_value_2 = __half2float(k_ptr[1]);
+                float v_value_1 = __half2float(v_ptr[0]);
+                float v_value_2 = __half2float(v_ptr[1]);
+                float k_bias_value_1 = __half2float(k_bias_ptr[0]);
+                float k_bias_value_2 = __half2float(k_bias_ptr[1]);
+                float v_bias_value_1 = __half2float(v_bias_ptr[0]);
+                float v_bias_value_2 = __half2float(v_bias_ptr[1]);
 
-    if (use_dynamic_ntk) {
-        rotary_embedding_base = mmha::rotary_embedding_get_base(
-            context_len, max_position_embeddings, rotary_embedding_dim, rotary_embedding_base);
-    }
+                printf("\n k_bias_value_1 = %f \n", k_bias_value_1);
+                printf("\n k_bias_value_2 = %f \n", k_bias_value_2);
+                printf("\n v_bias_value_1 = %f \n", v_bias_value_1);
+                printf("\n v_bias_value_2 = %f \n", v_bias_value_2);
 
-    // TODO: unused computation on k if GQA is used
-    // mmha::apply_rotary_embedding(q, k, tidx, rotary_embedding_dim, rotary_embedding_base, timestep);
+                printf("\n k_value_1 = %f \n", k_value_1);
+                printf("\n k_value_2 = %f \n", k_value_2);
+                printf("\n v_value_1 = %f \n", v_value_1);
+                printf("\n v_value_2 = %f \n", v_value_2);
+            }
 
-    if (use_logn_attn) {
-        // +1 to convert to context length at the timestep
-        float logn_scaling = mmha::logn_attn_get_scaling(timestep + 1, max_position_embeddings);
-        if constexpr (std::is_same_v<T, float>) {
-            q = mmha::mul<Vec_t, float, Vec_t>(logn_scaling, q);
-        }
-        else if constexpr (std::is_same_v<T, half>) {
-            half tmp = __float2half(logn_scaling);
-            q        = mmha::mul<Vec_t, uint16_t, Vec_t>((uint16_t&)tmp, q);
-        }
-    }
-
-    if (!is_masked && !q_buf) {  // also skip modifying QKV if q/k/v_buf are present
-        *reinterpret_cast<Vec_t*>(&QKV[src_q_idx]) = q;
-        if (head_idx < kv_head_num) {
-            *reinterpret_cast<Vec_t*>(&QKV[src_k_idx]) = k;
-            *reinterpret_cast<Vec_t*>(&QKV[src_v_idx]) = v;
         }
     }
-
-    const int dest_q_idx = batch_idx * size_per_head * seq_len * head_num + head_idx * size_per_head * seq_len
-                           + seq_idx * size_per_head + tidx * vec_size;
-
-    const int dest_kv_idx = batch_idx * size_per_head * total_seq_len * kv_head_num
-                            + head_idx * size_per_head * total_seq_len + seq_idx * size_per_head + tidx * vec_size;
+    
+    
+    // const int dest_q_idx = token_idx * head_num * size_per_head + 
+    //                        group_idx * group_size * size_per_head + group_idy * size_per_head + tidx * vec_size;
+    // const int dest_kv_idx = token_idx * kv_head_num * size_per_head + group_idx * size_per_head + tidx * vec_size;
+    // q [6, 8, 78, 128]
+    // const int dest_q_idx = head_idx * seq_len * size_per_head + seq_idx * size_per_head + tidx * vec_size;
+    const int dest_q_idx = group_idy * kv_head_num * seq_len * size_per_head 
+                         + group_idx * seq_len * size_per_head 
+                         + seq_idx * size_per_head 
+                         + tidx * vec_size;
+    const int dest_kv_idx = group_idx * seq_len * size_per_head + seq_idx * size_per_head + tidx * vec_size;
+    
+    if(threadIdx.x == 0 && blockIdx.x == 1 && blockIdx.y == 6) {
+        printf("\n dest_q_idx = %d \n", int(dest_q_idx));
+        printf("\n dest_kv_idx = %d \n", int(dest_kv_idx));
+    }
 
     if (!is_masked) {
         *reinterpret_cast<Vec_t*>(&q_buf[dest_q_idx]) = q;
-        if (head_idx < kv_head_num) {
+        if (group_idy < 1) {
             *reinterpret_cast<Vec_t*>(&k_buf[dest_kv_idx]) = k;
             *reinterpret_cast<Vec_t*>(&v_buf[dest_kv_idx]) = v;
         }
@@ -1074,8 +1302,19 @@ void invokeAddFusedQKVBiasTranspose(T*           q_buf,
                                     bool         use_logn_attn,
                                     cudaStream_t stream)
 {
+    // batch_size      =   1
+    // seq_len         =  78
+    // token_num       =  78
+    // head_num        =  48
+    // kv_head_num     =   8
+    // size_per_head   = 128
+    // use_dynamic_ntk =   0
+    // use_logn_attn   =   0
+
     FT_CHECK(rotary_embedding_dim);
     // To implement rotary embeddings, each thread processes two QKV elems:
+    // block.x: 64, block.y:  1, block.z: 1
+    //  grid.x: 78,  grid.y: 48,  grid.z: 1
     dim3   block((size_per_head / Vec_t<T>::size + 31) / 32 * 32);
     dim3   grid(token_num, head_num);
 

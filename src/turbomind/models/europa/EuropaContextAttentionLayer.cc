@@ -29,6 +29,7 @@
 #include "src/turbomind/utils/Tensor.h"
 #include "src/turbomind/utils/cuda_utils.h"
 #include "src/turbomind/utils/logger.h"
+// #include "src/turbomind/utils/debug_utils.h"
 
 namespace turbomind {
 
@@ -182,6 +183,13 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
                                    params_.use_logn_attn,
                                    stream_);
     sync_check_cuda_error();
+    int err_code = cudaStreamSynchronize(stream_);
+    printf("\n err_code = %d \n", err_code);
+
+    // saveDataEuropa(78 * 48 * 128, (half *)q_buf_2_, "layer_0_attention_query_output");
+    // saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "layer_0_attention_key_output");
+    // saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "layer_0_attention_value_output");
+    // exit(0);
 
     const size_t layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
 
@@ -210,6 +218,7 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
                         weights->past_kv_scale.data());
     sync_check_cuda_error();
     
+    // use_fmha_ = true
     if (use_fmha_) {
         fusedMultiHeadAttention(k_cache_ptrs,
                                 v_cache_ptrs,
@@ -258,16 +267,20 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
 
 template<typename T>
 void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_ptrs,
-                                                            T**    val_cache_ptrs,
-                                                            size_t cache_layer_offset,
-                                                            T*     attention_mask,
-                                                            int*   cu_seqlens,
-                                                            int*   context_lengths,
-                                                            int    batch_size,
-                                                            int    max_q_len,
-                                                            int    max_k_len,
-                                                            int    max_seq_len)
+                                                             T**    val_cache_ptrs,
+                                                             size_t cache_layer_offset,
+                                                             T*     attention_mask,
+                                                             int*   cu_seqlens,
+                                                             int*   context_lengths,
+                                                             int    batch_size,
+                                                             int    max_q_len,
+                                                             int    max_k_len,
+                                                             int    max_seq_len)
 {
+    // batch_size = 1
+    // max_q_len = 78
+    // max_k_len = 78
+    // max_seq_len = 8192
     //////////////////////////////////////////////
     // flash attention
     // flash attention 2 only support half inputs
@@ -293,6 +306,41 @@ void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_pt
         int(size_per_head_),
         true,
     };
+
+    // // 打印 q 的形状
+    // printf("\n q_1 :%d * %d * %d = %d, q_2 : %d, q_3 : %d * %d = %d", 
+    //         int(local_head_num_), 
+    //         int(max_q_len), 
+    //         int(size_per_head_), 
+    //         int(local_head_num_ * max_q_len * size_per_head_), 
+    //         int(size_per_head_), 
+    //         int(max_q_len),
+    //         int(size_per_head_),
+    //         int(max_q_len * size_per_head_));
+
+    // // 打印 k 的形状
+    // printf("\n k_1 : %d * %d * %d = %d, k_2 : %d, k_3 : %d * %d = %d", 
+    //         int(local_head_num_), 
+    //         int(max_seq_len), 
+    //         int(size_per_head_), 
+    //         int(local_head_num_ * max_seq_len * size_per_head_), 
+    //         int(size_per_head_), 
+    //         int(max_seq_len),
+    //         int(size_per_head_),
+    //         int(max_seq_len * size_per_head_));
+
+    // // 打印 v 的形状
+    // printf("\n v_1 : %d * %d * %d = %d, v_2 : %d, v_3 : %d * %d = %d", 
+    //         int(local_head_num_), 
+    //         int(max_seq_len), 
+    //         int(size_per_head_), 
+    //         int(local_head_num_ * max_seq_len * size_per_head_), 
+    //         int(size_per_head_), 
+    //         int(max_seq_len),
+    //         int(size_per_head_),
+    //         int(max_seq_len * size_per_head_));
+
+
     size_t                       group_size = size_t(local_head_num_ / local_kv_head_num_);
     AttentionOp                  flash_attention(batch_size, local_head_num_, max_k_len, max_q_len, size_per_head_);
     typename AttentionOp::Params attn_params{qkv_buf_3_,
@@ -310,8 +358,6 @@ void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_pt
                                              layout_k,
                                              layout_v,
                                              layout_o};
-
-    //
     flash_attention(attn_params, stream_);
 }
 

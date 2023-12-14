@@ -1182,10 +1182,13 @@ def deploy_europa(model_name: str, model_path: str, tokenizer_path: str,
             param = get_param(param_name, param_data['weight'].size())
             param.data = param_data['weight']
         del ckpt
-        
+    
     for name, param in model_params.items():
         # transpose all weights as TurboMind is expecting column-major
         # weights: (output_dims, input_dims) -> (input_dims, output_dims)
+        # key_ = name.split('.')[-2]
+        # if key_ == "query_key_value":
+        #     continue
         if name not in ['word_embeddings.weight', 'position_embeddings.weight']:
             key = name.split('.')[-1]
             if key == "weight":

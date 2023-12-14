@@ -93,7 +93,6 @@ template<typename Kernel_traits,
          typename Params>
 inline __device__ void compute_attn_1rowblock(const Params& params, const int bidb, const int bidh, const int m_block)
 {
-
     using Element      = typename Kernel_traits::Element;
     using ElementAccum = typename Kernel_traits::ElementAccum;
     using index_t      = typename Kernel_traits::index_t;

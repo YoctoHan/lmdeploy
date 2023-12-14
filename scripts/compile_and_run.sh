@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 # 定义目标工作目录
 target_directory="/data/yocto_bak/lmdeploy"
 
@@ -29,7 +29,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-proxychains make -j128
+proxychains make -j56
 
 if [ $? -ne 0 ]; then
     echo "Error: make command failed"

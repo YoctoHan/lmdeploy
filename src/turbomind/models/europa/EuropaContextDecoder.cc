@@ -27,6 +27,7 @@
 #include "src/turbomind/models/europa/europa_decoder_kernels.h"
 #include "src/turbomind/models/llama/llama_kernels.h"
 #include "src/turbomind/utils/Tensor.h"
+#include "src/turbomind/utils/debug_utils.h"
 
 namespace turbomind {
 
@@ -264,6 +265,8 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
         /////////////////////////////////////////////
         /// self-attention
         forwardSelfAttn(sess, decoder_output, input_tensors, layer, false);
+        saveDataEuropa(78 * 6144, (half *)decoder_output, "layer_0_attention_output");
+        exit(0);
         invokeAddResidual(decoder_output, decoder_input_output, sess.token_num, hidden_units_, stream_);
         sync_check_cuda_error();
 
