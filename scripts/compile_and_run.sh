@@ -1,5 +1,8 @@
 #!/bin/bash
-set -x
+
+# # 启用调试模式
+# set -x
+
 # 定义目标工作目录
 target_directory="/data/yocto_bak/lmdeploy"
 
@@ -44,3 +47,6 @@ if [ $? -ne 0 ]; then
     echo "Error: Failed to run python module $PYTHON_MODULE"
     exit 1
 fi
+
+# # 关闭调试模式
+# set +x 

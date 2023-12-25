@@ -265,8 +265,6 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
         /////////////////////////////////////////////
         /// self-attention
         forwardSelfAttn(sess, decoder_output, input_tensors, layer, false);
-        saveDataEuropa(78 * 6144, (half *)decoder_output, "layer_0_attention_output");
-        exit(0);
         invokeAddResidual(decoder_output, decoder_input_output, sess.token_num, hidden_units_, stream_);
         sync_check_cuda_error();
 
@@ -296,7 +294,7 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
         invokeAddResidual(decoder_input_output, decoder_output, sess.token_num, hidden_units_, stream_);
         sync_check_cuda_error();
     }
-
+    
     invokeGeneralLayerNorm(decoder_output,
                            decoder_input_output,
                            *final_layernorm_weight,

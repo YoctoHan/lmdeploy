@@ -97,8 +97,7 @@ void run_mha_fwd_hdim64(Flash_fwd_params& params, cudaStream_t stream)
 
 template<typename T>
 void run_mha_fwd_hdim128(Flash_fwd_params& params, cudaStream_t stream)
-{   
-    printf("\n FINDDDD \n");
+{
     constexpr int         Headdim    = 128;
     bool                  is_sm8x    = (turbomind::getSMVersion() >= 80);
     static constexpr bool Is_dropout = false;

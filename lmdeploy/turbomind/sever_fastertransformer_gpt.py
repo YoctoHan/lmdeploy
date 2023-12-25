@@ -4,6 +4,7 @@ import os
 import sys
 import traceback
 import os.path as osp
+import numpy as np
 import random
 import time
 import torch
@@ -229,5 +230,30 @@ import threading"""
 
     # serve()
 
+
+def test(model_path, vocab_dir):
+# model_path = "./star_coder_workspace"
+    # vocab_dir="/data3/StarCoderBase/"
+    servicer = ModelServicer(model_path, vocab_dir)
+#     input_str = """import copy
+# import os
+# import queue
+# import sys
+# import hashlib
+# import threading"""
+
+#     input_ids = servicer.tokenizer.encode(input_str)
+    input_ids = np.random.randint(low=0, high=100, size=1024)
+    servicer.CreatePrediction(input_ids, "", "", 0)
+
+    start_time = time.time()
+    servicer.GetResult()                
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    elapsed_time_ms = elapsed_time * 1000
+    print(elapsed_time_ms)
+
+
 if __name__ == '__main__':
     fire.Fire(main)
+    # fire.Fire(test)

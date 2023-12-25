@@ -88,6 +88,12 @@ private:
     EuropaLinear<T> linear_;
 
     T* qkv_buf_     = nullptr;
+    T* q_buf_       = nullptr;
+    T* k_buf_       = nullptr;
+    T* v_buf_       = nullptr;
+    T* q_bias_buf_  = nullptr;
+    T* k_bias_buf_  = nullptr;
+    T* v_bias_buf_  = nullptr;
     T* context_buf_ = nullptr;
 
     bool is_allocate_buffer_{};

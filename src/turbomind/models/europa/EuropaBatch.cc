@@ -550,7 +550,7 @@ bool EuropaBatch<T>::generate()
         }
         TM_LOG_INFO("[generate] step = %d, [%s]", step_ - 1, scurr.str().c_str());
     }
-
+    // exit(0);
     ////////////////////////////////////////////////
     /// ! increase the step counter
     ++step_;

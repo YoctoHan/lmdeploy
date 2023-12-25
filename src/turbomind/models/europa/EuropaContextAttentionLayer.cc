@@ -29,7 +29,7 @@
 #include "src/turbomind/utils/Tensor.h"
 #include "src/turbomind/utils/cuda_utils.h"
 #include "src/turbomind/utils/logger.h"
-// #include "src/turbomind/utils/debug_utils.h"
+#include "src/turbomind/utils/debug_utils.h"
 
 namespace turbomind {
 
@@ -183,13 +183,12 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
                                    params_.use_logn_attn,
                                    stream_);
     sync_check_cuda_error();
-    int err_code = cudaStreamSynchronize(stream_);
-    printf("\n err_code = %d \n", err_code);
+    // int err_code = cudaStreamSynchronize(stream_);
+    // printf("\n err_code = %d \n", err_code);
 
     // saveDataEuropa(78 * 48 * 128, (half *)q_buf_2_, "layer_0_attention_query_output");
     // saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "layer_0_attention_key_output");
     // saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "layer_0_attention_value_output");
-    // exit(0);
 
     const size_t layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
 
@@ -246,10 +245,14 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
                                   quant_policy_,
                                   weights->past_kv_scale.data());
     }
-    
+
     //////////////////////////////////////////////
     /// output gemm <Bs,HD> -> <Bs,HD>
     linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
+    // saveDataEuropa(78 * 6144, (half *)qkv_buf_3_, "layer_0_attention_linear_input");
+    // saveDataEuropa(6144 * 6144, (half *)(weights->output.kernel), "layer_0_attention_linear_weight");
+    // saveDataEuropa(78 * 6144, (half *)attention_out, "layer_0_attention_linear_output");
+    // exit(0);
     invokeAddBias(attention_out, weights->output.bias, num_token, hidden_units_, stream_);
     sync_check_cuda_error();
 

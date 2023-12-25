@@ -19,6 +19,7 @@
 // https://github.com/NVIDIA/FasterTransformer/blob/main/src/turbomind/layers/attention_layers/DecoderSelfAttentionLayer.cc
 #include "src/turbomind/models/europa/EuropaDecoderSelfAttentionLayer.h"
 #include "src/turbomind/kernels/decoder_masked_multihead_attention.h"
+#include "src/turbomind/kernels/unfused_attention_kernels.h"
 #include "src/turbomind/macro.h"
 #include "src/turbomind/models/llama/LlamaNcclGuard.h"
 #include "src/turbomind/models/llama/llama_kernels.h"
@@ -26,6 +27,7 @@
 #include "src/turbomind/utils/cuda_utils.h"
 #include "src/turbomind/utils/logger.h"
 #include "src/turbomind/utils/nvtx_utils.h"
+#include "src/turbomind/utils/debug_utils.h"
 #include <string>
 // #include <glog/logging.h>
 
@@ -43,6 +45,12 @@ struct SATypeConverter<half> {
 
 template<typename T>
 static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
+                                                      const T*     q_buf,
+                                                      const T*     k_buf,
+                                                      const T*     v_buf,
+                                                      const T*     q_bias_buf,
+                                                      const T*     k_bias_buf,
+                                                      const T*     v_bias_buf,
                                                       const T*     qkv_bias,
                                                       const T*     relative_attention_bias,
                                                       T*           key_cache,
@@ -89,142 +97,52 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     Masked_multihead_attention_params<DataType> params;
     memset(&params, 0, sizeof(params));
     // int hidden_units = head_num * size_per_head;
-    if (qkv_bias != nullptr) {
-        params.q_bias = reinterpret_cast<const DataType*>(qkv_bias);
-        params.k_bias = reinterpret_cast<const DataType*>(qkv_bias) + head_num * size_per_head;
-        params.v_bias = reinterpret_cast<const DataType*>(qkv_bias) + (head_num + kv_head_num) * size_per_head;
-    }
-    else {
-        params.q_bias = nullptr;
-        params.k_bias = nullptr;
-        params.v_bias = nullptr;
-    }
+
+    invokeDecoderAddFusedQKVBiasTranspose((T *)q_bias_buf,
+                                          (T *)k_bias_buf,
+                                          (T *)v_bias_buf,
+                                          (T *)qkv_bias,
+                                          (T *)nullptr,
+                                          inference_batch_size,
+                                          1,
+                                          1,
+                                          head_num,
+                                          kv_head_num,
+                                          size_per_head,
+                                          stream);
+    sync_check_cuda_error();
+
+    params.q_bias = reinterpret_cast<const DataType*>(q_bias_buf);
+    params.k_bias = reinterpret_cast<const DataType*>(k_bias_buf);
+    params.v_bias = reinterpret_cast<const DataType*>(v_bias_buf);
 
     // Set the output buffer.
     params.out = reinterpret_cast<DataType*>(context_buf);
 
+    invokeDecoderAddFusedQKVBiasTranspose((T *)q_buf,
+                                          (T *)k_buf,
+                                          (T *)v_buf,
+                                          (T *)qkv_buf,
+                                          (T *)nullptr,
+                                          inference_batch_size,
+                                          1,
+                                          1,
+                                          head_num,
+                                          kv_head_num,
+                                          size_per_head,
+                                          stream);
+    sync_check_cuda_error();
+
     // Set the input buffers.
     // [B, nH + kvH, D]
-    params.q = reinterpret_cast<const DataType*>(qkv_buf);
-    params.k = reinterpret_cast<const DataType*>(qkv_buf) + head_num * size_per_head;
-    params.v = reinterpret_cast<const DataType*>(qkv_buf) + (head_num + kv_head_num) * size_per_head;
+    params.q = reinterpret_cast<const DataType*>(q_buf);
+    params.k = reinterpret_cast<const DataType*>(k_buf);
+    params.v = reinterpret_cast<const DataType*>(v_buf);
+    saveDataEuropa(6144, (half *)(params.q), "layer_0_attention_q_output");
+    saveDataEuropa(1024, (half *)(params.k), "layer_0_attention_k_output");
+    saveDataEuropa(1024, (half *)(params.v), "layer_0_attention_v_output");
 
-    {
-    //  {
-    //     int num_element = head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.q_bias), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_q_bias.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-
-    // {
-    //     int num_element = kv_head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.k_bias), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_k_bias.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-
-    // {
-    //     int num_element = kv_head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.v_bias), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_v_bias.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-
-    // {
-    //     int num_element = head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.q), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_q.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-
-    // {
-    //     int num_element = kv_head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.k), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_k.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-
-    // {
-    //     int num_element = kv_head_num * size_per_head;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(params.v), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/attention/lmdeploy_v.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-    }
-
+    // printf("\n  params.q == params.q_bias ? %d  \n", int(params.q == params.q_bias));
 
     params.stride   = (head_num + 2 * kv_head_num) * size_per_head;
     params.finished = const_cast<bool*>(finished);
@@ -253,25 +171,6 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     params.use_dynamic_ntk         = use_dynamic_ntk;
     params.use_logn_attn           = use_logn_attn;
 
-    // printf("\n params.stride = %d \n", int(params.stride));
-    // printf("\n params.finished = %d \n", int(params.finished == nullptr));
-    // printf("\n params.kv_cache_per_sample_offset = %d \n", int(params.kv_cache_per_sample_offset));
-    // printf("\n params.batch_size = %d \n", int(params.batch_size));
-    // printf("\n params.beam_width = %d \n", int(params.beam_width));
-    // printf("\n params.memory_max_len = %d \n", int(params.memory_max_len));
-    // printf("\n params.prefix_prompt_lengths = %d \n", int(params.prefix_prompt_lengths == nullptr));
-    // printf("\n params.max_prefix_prompt_length = %d \n", int(params.max_prefix_prompt_length));
-    // printf("\n params.length_per_sample = %d \n", int(params.length_per_sample == nullptr));
-    // printf("\n params.timestep = %d \n", int(params.timestep));
-    // printf("\n params.num_heads = %d \n", int(params.num_heads));
-    // printf("\n params.num_kv_heads = %d \n", int(params.num_kv_heads));
-    // printf("\n params.hidden_size_per_head = %d \n", int(params.hidden_size_per_head));
-    // printf("\n params.rotary_embedding_dim = %d \n", int(params.rotary_embedding_dim));
-    // printf("\n params.rotary_embedding_base = %d \n", int(params.rotary_embedding_base));
-    // printf("\n params.max_position_embeddings = %d \n", int(params.max_position_embeddings));
-    // printf("\n params.use_logn_attn = %d \n", int(params.use_logn_attn));
-    // printf("\n int8_mode & QuantPolicy::kCacheKVInt8 = %d \n", int(int8_mode & QuantPolicy::kCacheKVInt8));
-
     // Note: keep norm factor (sqrt(K_dim)) when adopting megatron T5 structure (may adjust)
     params.inv_sqrt_dh = 1.F / (sqrtf((float)params.hidden_size_per_head) * q_scaling);
 
@@ -297,6 +196,11 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
         params.attention_v_zp    = attention_kv_scale[3];
     }
 
+
+    saveDataEuropa(6144, (half *)(params.q_bias), "layer_0_attention_q_bias_output");
+    saveDataEuropa(1024, (half *)(params.k_bias), "layer_0_attention_k_bias_output");
+    saveDataEuropa(1024, (half *)(params.v_bias), "layer_0_attention_v_bias_output");
+
     PUSH_RANGE("scaled dot-product fusion");
     masked_multihead_attention(params, stream);
     // exit(0);
@@ -312,6 +216,18 @@ void EuropaDecoderSelfAttentionLayer<T>::allocateBuffer(size_t batch_size, int k
 
     qkv_buf_ = reinterpret_cast<T*>(
         allocator_->reMalloc(qkv_buf_, sizeof(T) * batch_size * local_q_kv_head_num * size_per_head_, false));
+    q_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(q_buf_, sizeof(T) * batch_size * local_head_num_ * size_per_head_, false));
+    k_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(k_buf_, sizeof(T) * batch_size * local_kv_head_num_ * size_per_head_, false));
+    v_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(v_buf_, sizeof(T) * batch_size * local_kv_head_num_ * size_per_head_, false));
+    q_bias_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(q_bias_buf_, sizeof(T) * batch_size * local_head_num_ * size_per_head_, false));
+    k_bias_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(k_bias_buf_, sizeof(T) * batch_size * local_kv_head_num_ * size_per_head_, false));
+    v_bias_buf_ = reinterpret_cast<T*>(
+        allocator_->reMalloc(v_bias_buf_, sizeof(T) * batch_size * local_kv_head_num_ * size_per_head_, false));
     context_buf_ =
         reinterpret_cast<T*>(allocator_->reMalloc(context_buf_, sizeof(T) * batch_size * local_hidden_units_, false));
 
@@ -323,15 +239,21 @@ void EuropaDecoderSelfAttentionLayer<T>::freeBuffer()
 {
     if (is_allocate_buffer_) {
         allocator_->free((void**)(&qkv_buf_));
+        allocator_->free((void**)(&q_buf_));
+        allocator_->free((void**)(&k_buf_));
+        allocator_->free((void**)(&v_buf_));
+        allocator_->free((void**)(&q_bias_buf_));
+        allocator_->free((void**)(&k_bias_buf_));
+        allocator_->free((void**)(&v_bias_buf_));
         allocator_->free((void**)(&context_buf_));
         is_allocate_buffer_ = false;
     }
 }
 
 template<typename T>
-void EuropaDecoderSelfAttentionLayer<T>::forward(TensorMap*                     output_tensors,
-                                                const TensorMap*               input_tensors,
-                                                const EuropaAttentionWeight<T>* weights)
+void EuropaDecoderSelfAttentionLayer<T>::forward(TensorMap*                      output_tensors,
+                                                 const TensorMap*                input_tensors,
+                                                 const EuropaAttentionWeight<T>* weights)
 {
     /**
      * input tensors:
@@ -372,70 +294,21 @@ void EuropaDecoderSelfAttentionLayer<T>::forward(TensorMap*                     
     const int batch_size = input_tensors->at("input_query").shape[0];
     const int beam_width = cache_indir != nullptr ? input_tensors->at("cache_indirection").shape[1] : 1;
     
-    // {
-    //     int num_element = 6144 * 6400;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(weights->qkv.kernel), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_weight.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
     
-    // {
-    //     int num_element = 6400;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(weights->qkv.bias), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_bias.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
-    // exit(0);
 
     allocateBuffer(batch_size, step, max_seq_len);
     PUSH_RANGE("qkv_gemm");
+    
+    // saveDataEuropa(1 * 6144, (half *)(input_query_data), "layer_0_attention_qkv_input");
+    // saveDataEuropa(8192 * 6144, (half *)(weights->qkv.kernel), "layer_0_attention_qkv_weight");
+    // saveDataEuropa(1 * 8192, (half *)(weights->qkv.bias), "layer_0_attention_qkv_bias");
+    
     linear_.forward(qkv_buf_, input_query_data, batch_size, weights->qkv);
     // invokeAddBias(qkv_buf_, weights->qkv.bias, batch_size, hidden_units_ + local_kv_head_num_ * 2 * size_per_head_, stream_); 
     sync_check_cuda_error();
     POP_RANGE;
 
-    // {
-    //     int num_element = 6400;
-    //     half* data_host = new half[num_element];
-    //     cudaD2Hcpy(data_host, (half *)(qkv_buf_), num_element);
-
-    //     std::vector<float> vec_float(num_element);
-    //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-    //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_qkv.bin";
-    //     std::ofstream outfile(file_name, std::ios::binary);
-    //     if (outfile.is_open())
-    //     {   
-    //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-    //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-    //         outfile.close();
-    //     }
-    //     delete[] data_host;
-    // }
+    // saveDataEuropa(1 * 8192, (half *)(qkv_buf_), "layer_0_attention_qkv_output");
     // exit(0);
 
     const auto kv_cache_layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
@@ -447,6 +320,12 @@ void EuropaDecoderSelfAttentionLayer<T>::forward(TensorMap*                     
     
     fusedQKV_masked_attention_dispatch<T>(
         qkv_buf_,
+        q_buf_,
+        k_buf_,
+        v_buf_,
+        q_bias_buf_,
+        k_bias_buf_,
+        v_bias_buf_,
         weights->qkv.bias,  // query_weight.bias,
         nullptr,            // relative_attention_bias,
         nullptr,

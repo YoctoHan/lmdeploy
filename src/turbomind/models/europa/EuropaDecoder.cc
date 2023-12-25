@@ -26,23 +26,24 @@
 #include "src/turbomind/models/llama/llama_kernels.h"
 #include "src/turbomind/models/europa/europa_params.h"
 #include "src/turbomind/models/llama/llama_utils.h"
+#include "src/turbomind/utils/debug_utils.h"
 
 namespace turbomind {
 
 template<typename T>
 EuropaDecoder<T>::EuropaDecoder(size_t                      head_num,
-                              size_t                      kv_head_num,
-                              size_t                      size_per_head,
-                              size_t                      inter_size,
-                              size_t                      num_layer,
-                              const EuropaAttentionParams& attn_params,
-                              float                       rmsnorm_eps,
-                              NcclParam                   tensor_para,
-                              cudaStream_t                stream,
-                              cublasMMWrapper*            cublas_wrapper,
-                              IAllocator*                 allocator,
-                              bool                        is_free_buffer_after_forward,
-                              int                         quant_policy):
+                                size_t                      kv_head_num,
+                                size_t                      size_per_head,
+                                size_t                      inter_size,
+                                size_t                      num_layer,
+                                const EuropaAttentionParams& attn_params,
+                                float                       rmsnorm_eps,
+                                NcclParam                   tensor_para,
+                                cudaStream_t                stream,
+                                cublasMMWrapper*            cublas_wrapper,
+                                IAllocator*                 allocator,
+                                bool                        is_free_buffer_after_forward,
+                                int                         quant_policy):
     BaseLayer(stream, cublas_wrapper, allocator, is_free_buffer_after_forward),
     head_num_(head_num),
     size_per_head_(size_per_head),
@@ -113,10 +114,10 @@ void EuropaDecoder<T>::freeBuffer()
 }
 
 template<typename T>
-void EuropaDecoder<T>::forwardSelfAttn(const EuropaDecoder::Session&                   sess,
-                                      T*                                             attn_io,
-                                      const std::unordered_map<std::string, Tensor>* input_tensors,
-                                      size_t                                         layer)
+void EuropaDecoder<T>::forwardSelfAttn(const EuropaDecoder::Session&                  sess,
+                                       T*                                             attn_io,
+                                       const std::unordered_map<std::string, Tensor>* input_tensors,
+                                       size_t                                         layer)
 {
     TM_LOG_DEBUG(__PRETTY_FUNCTION__);
     TensorMap self_attention_input_tensors(*input_tensors);
@@ -213,8 +214,14 @@ void EuropaDecoder<T>::forward(std::unordered_map<std::string, Tensor>*        o
                                0,
                                stream_);
         sync_check_cuda_error();
-
+        // saveDataEuropa(1 * 6144, (half *)decoder_input, "layer_0_pre_attention_layernorm_input");
+        // saveDataEuropa(1 * 6144, (half *)(decoder_layer_weights->at(layer)->pre_self_attn_norm_weights), "layer_0_pre_attention_layernorm_weight");
+        // saveDataEuropa(1 * 6144, (half *)(decoder_layer_weights->at(layer)->pre_self_attn_norm_bias), "layer_0_pre_attention_layernorm_bias");
+        // saveDataEuropa(1 * 6144, (half *)decoder_output, "layer_0_pre_attention_layernorm_output");
+        // exit(0);
         forwardSelfAttn(sess, decoder_output, input_tensors, layer);
+        saveDataEuropa(1 * 6144, (half *)decoder_output, "layer_0_attention_output");
+        exit(0);
         invokeAddResidual(decoder_output, decoder_input, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
 

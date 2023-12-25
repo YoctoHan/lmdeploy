@@ -45,6 +45,10 @@ add_library(word_list STATIC word_list.cc)
 set_property(TARGET word_list PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET word_list PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 
+add_library(debug_utils STATIC debug_utils.cc)
+set_property(TARGET debug_utils PROPERTY POSITION_INDEPENDENT_CODE  ON)
+set_property(TARGET debug_utils PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+
 add_library(nvtx_utils STATIC nvtx_utils.cc)
 set_property(TARGET nvtx_utils PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET nvtx_utils PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)

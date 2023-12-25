@@ -3,6 +3,7 @@ import dataclasses
 import os
 import os.path as osp
 import random
+import numpy as np
 import time
 
 import fire
@@ -176,6 +177,98 @@ os.environ['TM_LOG_LEVEL'] = 'INFO'"""
 
             nth_round += 1
 
+def test(model_path, vocab_dir):
+    """An example to perform model inference through the command line
+    interface.
+
+    Args:
+        model_path (str): the path of the deployed model
+        session_id (int): the identical id of a session
+        cap (str): the capability of a model. For example, codellama has
+            the ability among ['completion', 'infilling', 'chat', 'python']
+        sys_instruct (str): the content of 'system' role, which is used by
+            conversational model
+        tp (int): GPU number used in tensor parallelism
+        stream_output (bool): indicator for streaming output or not
+        **kwarg (dict): other arguments for initializing model's chat template
+    """
+    session_id = 1
+    cap = 'completion'
+    sys_instruct = None
+    tp = 1
+    stream_output = True
+    tokenizer = GPTTokenizer(vocab_dir)
+    tm_model = tm.TurboMind(model_path, eos_id = tokenizer.eos_id, tp=tp)
+    generator = tm_model.create_instance()
+
+
+    nth_round = 1
+    step = 0
+    seed = random.getrandbits(64)
+    model_name = tm_model.model_name
+    model = MODELS.get(model_name)(capability=cap) \
+        if sys_instruct is None else MODELS.get(model_name)(
+            capability=cap, system=sys_instruct)
+
+    print(f'session {session_id}')
+
+    while True:
+        # prompt = input_prompt(model_name)
+        prompt = ""
+        if prompt == 'exit':
+            exit(0)
+        elif prompt == 'end':
+            prompt = model.get_prompt('', nth_round == 1)
+            input_ids = tokenizer.encode(prompt)
+            for outputs in generator.stream_infer(session_id=session_id,
+                                                  input_ids=[input_ids],
+                                                  request_output_len=1,
+                                                  sequence_start=False,
+                                                  sequence_end=True,
+                                                  stream_output=stream_output):
+                pass
+            nth_round = 1
+            step = 0
+            seed = random.getrandbits(64)
+        else:
+            input_ids = np.random.randint(low=0, high=100, size=7168)
+            if step + len(input_ids) >= tm_model.session_len:
+                print('WARNING: exceed session max length.'
+                      ' Please end the session.')
+                continue
+
+            gen_param = get_gen_param(cap, model.sampling_param, nth_round,
+                                      step)
+            
+            # import pdb;pdb.set_trace()
+
+            print(f'{prompt} ', end='', flush=True)
+            print()
+            response_size = 0
+
+            for outputs in generator.stream_infer(
+                    session_id=session_id,
+                    input_ids=[input_ids],
+                    stream_output=stream_output,
+                    **dataclasses.asdict(gen_param),
+                    ignore_eos=False,
+                    random_seed=seed if nth_round == 1 else None):
+                res, tokens = outputs[0]
+                # decode res
+                response = tokenizer.decode(res.tolist(), offset=response_size)
+                response = valid_str(response)
+
+                # print(f'{response}', end='', flush=True)
+                print(response)
+                response_size = tokens
+
+            # update step
+            step += len(input_ids) + tokens
+            print()
+
+            nth_round += 1
+
 
 if __name__ == '__main__':
     fire.Fire(main)
+    # fire.Fire(test)

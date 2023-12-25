@@ -47,7 +47,6 @@ template<typename T, int Dh, int Dh_MAX, typename KERNEL_PARAMS_TYPE>
 void mmha_launch_kernel(const KERNEL_PARAMS_TYPE& params, const cudaStream_t& stream)
 {
     constexpr int THREADS_PER_VALUE = threads_per_value_t<T, Dh_MAX>::value;
-
     const int tlength = params.timestep;
     if (params.int8_mode == 4) {
         if (tlength < 32) {
