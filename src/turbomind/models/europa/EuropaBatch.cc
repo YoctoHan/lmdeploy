@@ -9,6 +9,7 @@
 #include "src/turbomind/models/llama/llama_utils.h"
 #include "src/turbomind/utils/Tensor.h"
 #include "src/turbomind/utils/logger.h"
+#include "src/turbomind/utils/debug_utils.h"
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
@@ -489,26 +490,26 @@ bool EuropaBatch<T>::generate()
 
     // embeddingLookup(step_ - 1);
     europa_->embeddingLookup(decoder_input_buf_,  //
-                                 token_ids_buf_,
-                                 batch_size_,
-                                 step_ - 1);
+                             token_ids_buf_,
+                             batch_size_,
+                             step_ - 1);
 
     europa_->decoderForward(decoder_output_buf_,
-                                k_cache_ptr_buf_,
-                                v_cache_ptr_buf_,
-                                decoder_input_buf_,
-                                sequence_lengths_,
-                                total_padding_count_,
-                                finished_buf_,
-                                step_,
-                                0,
-                                session_len_,
-                                batch_size_);
+                            k_cache_ptr_buf_,
+                            v_cache_ptr_buf_,
+                            decoder_input_buf_,
+                            sequence_lengths_,
+                            total_padding_count_,
+                            finished_buf_,
+                            step_,
+                            0,
+                            session_len_,
+                            batch_size_);
 
     europa_->postDecodeEmbedding(logits_buf_,  //
-                                     local_logits_buf_,
-                                     decoder_output_buf_,
-                                     batch_size_);
+                                 local_logits_buf_,
+                                 decoder_output_buf_,
+                                 batch_size_);
 
     // stop-words & bad-words require the matched tokens to be contiguous, so item size > 1 is
     // not supported yet.
@@ -830,19 +831,20 @@ void EuropaBatch<T>::contextDecode()
                     context_decoder_ids += get_input_len(j);
                 }
                 europa_->contextDecode(nullptr,
-                                      k_cache_ptr_buf_ + offset,
-                                      v_cache_ptr_buf_ + offset,
-                                      context_decoder_input_buf_,
-                                      context_decoder_output_buf_,
-                                      context_decoder_ids_buf_,
-                                      input_length_buf_ + offset,
-                                      history_length_buf_ + offset,
-                                      context_length_buf_ + offset,
-                                      token_num,
-                                      max_input_len,
-                                      max_context_len,
-                                      session_len_,
-                                      context_decode_batch_size);
+                                       k_cache_ptr_buf_ + offset,
+                                       v_cache_ptr_buf_ + offset,
+                                       context_decoder_input_buf_,
+                                       context_decoder_output_buf_,
+                                       context_decoder_ids_buf_,
+                                       input_length_buf_ + offset,
+                                       history_length_buf_ + offset,
+                                       context_length_buf_ + offset,
+                                       token_num,
+                                       max_input_len,
+                                       max_context_len,
+                                       session_len_,
+                                       context_decode_batch_size);
+
 
                 // compute logits of inputs if requested
                 outputContextLogits(context_decoder_output_buf_, decode_indices, decode_lengths);

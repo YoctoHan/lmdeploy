@@ -32,6 +32,7 @@
 #include "src/turbomind/models/llama/llama_utils.h"
 #include "src/turbomind/utils/Tensor.h"
 #include "src/turbomind/utils/cuda_utils.h"
+#include "src/turbomind/utils/debug_utils.h"
 #include <functional>
 #include <memory>
 #include <sstream>

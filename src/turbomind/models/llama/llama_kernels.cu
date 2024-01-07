@@ -279,12 +279,13 @@ __global__ void extend_value_cache(T**          v_dst,
                                    const int    max_q_len,
                                    const int    max_seq_len)
 {
-    const int     batch_id = blockIdx.y;
-    const int     head_id  = blockIdx.z;
-    constexpr int X_ELEMS  = (sizeof(T) == 4) ? 4 : 8;
+    const int     batch_id = blockIdx.y; // 0
+    const int     head_id  = blockIdx.z; // 0 ~ 8
+    constexpr int X_ELEMS  = (sizeof(T) == 4) ? 4 : 8; // float : 4, half : 8
 
     const int idx                 = blockIdx.x * blockDim.x + threadIdx.x;
     int       size_per_head_div_x = size_per_head / X_ELEMS;
+
 
     // x dim is now handled by uint4 type
     const auto val_src = reinterpret_cast<const uint4*>(v_src);
@@ -302,10 +303,43 @@ __global__ void extend_value_cache(T**          v_dst,
                                 (v_seq_len_id + t_offset) * size_per_head_div_x +  // s + offset
                                 v_head_size_id;                                    // D/x
 
-        const int64_t src_idx = batch_id * head_num * size_per_head_div_x * max_q_len +  // B
-                                head_id * size_per_head_div_x * max_q_len +              // H
+        // if(threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
+        //     printf("\n dst check");
+        //     printf("\n blockDim.x = %d", int(blockDim.x));
+        //     printf("\n blockDim.y = %d", int(blockDim.y));
+        //     printf("\n blockDim.z = %d", int(blockDim.z));
+        //     printf("\n gridDim.x = %d", int(gridDim.x));
+        //     printf("\n gridDim.y = %d", int(gridDim.y));
+        //     printf("\n gridDim.z = %d", int(gridDim.z));
+        //     printf("\n seq_len = %d", int(seq_len));
+        //     printf("\n head_id = %d", int(head_id));
+        //     printf("\n size_per_head_div_x = %d", int(size_per_head_div_x));
+        //     printf("\n max_seq_len = %d", int(max_seq_len));
+        //     printf("\n v_seq_len_id = %d", int(v_seq_len_id));
+        //     printf("\n t_offset = %d", int(t_offset));
+        //     printf("\n v_head_size_id = %d", int(v_head_size_id));
+        //     printf("\n dst_idx = %d", int(dst_idx));
+        //     printf("\n");
+        // }
+
+        const int64_t src_idx = head_id * size_per_head_div_x * max_q_len +              // H
                                 v_seq_len_id * size_per_head_div_x +                     // s
                                 v_head_size_id;                                          // D/x
+
+        // if(threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
+        //     printf("\n src check");
+        //     printf("\n batch_id = %d", int(batch_id));
+        //     printf("\n head_num = %d", int(head_num));
+        //     printf("\n size_per_head_div_x = %d", int(size_per_head_div_x));
+        //     printf("\n max_q_len = %d", int(max_q_len));
+        //     printf("\n head_id = %d", int(head_id));
+        //     printf("\n size_per_head_div_x = %d", int(size_per_head_div_x));
+        //     printf("\n max_q_len = %d", int(max_q_len));
+        //     printf("\n v_seq_len_id = %d", int(v_seq_len_id));
+        //     printf("\n size_per_head_div_x = %d", int(size_per_head_div_x));
+        //     printf("\n v_head_size_id = %d", int(v_head_size_id));
+        //     printf("\n");
+        // }
 
         val_dst[dst_idx] = val_src[src_idx];
     }
@@ -439,7 +473,21 @@ void invokeExtendKVCache(T**          k_dst,
     constexpr int x        = (sizeof(T) == 4) ? 4 : 8;
 
     dim3 grid((max_q_len * size_per_head / x + block_sz - 1) / block_sz, local_batch_size, local_head_num);
-    
+    // std::cout << std::endl
+    //           << " Grid dimensions: "
+    //           << "x = " << grid.x << ", "
+    //           << "y = " << grid.y << ", "
+    //           << "z = " << grid.z << std::endl;
+    // printf(" quant & QuantPolicy::kCacheKVInt8 = %d\n", int(quant & QuantPolicy::kCacheKVInt8));
+    // printf("\n x = %d", int(x));
+    // printf("\n dst_offset = %d", int(dst_offset));
+    // printf("\n local_batch_size = %d", int(local_batch_size));
+    // printf("\n max_q_len = %d", int(max_q_len));
+    // printf("\n max_seq_len = %d", int(max_seq_len));
+    // printf("\n size_per_head = %d", int(size_per_head));
+    // printf("\n local_head_num = %d", int(local_head_num));
+    // printf("\n");
+
     if (quant & QuantPolicy::kCacheKVInt8) {
         extend_value_cache_int8<<<grid, block_sz, 0, stream>>>(reinterpret_cast<int8_t**>(k_dst),
                                                                dst_offset,

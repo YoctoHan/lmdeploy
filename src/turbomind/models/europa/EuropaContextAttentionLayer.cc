@@ -186,14 +186,20 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
     // int err_code = cudaStreamSynchronize(stream_);
     // printf("\n err_code = %d \n", err_code);
 
-    // saveDataEuropa(78 * 48 * 128, (half *)q_buf_2_, "layer_0_attention_query_output");
-    // saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "layer_0_attention_key_output");
-    // saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "layer_0_attention_value_output");
+    saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "key_check");
+    saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "value_check");
+    exit(0);
 
     const size_t layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
+    // printf("\n layer_id = %d", int(layer_id));
+    // printf("\n local_kv_head_num_ = %d", int(local_kv_head_num_));
+    // printf("\n max_seq_len = %d", int(max_seq_len));
+    // printf("\n size_per_head_ = %d", int(size_per_head_));
+    printf("\n layer_offset = %d", int(layer_offset));
 
     auto k_cache_ptrs = output_tensors->getPtr<T*>("key_cache");
     auto v_cache_ptrs = output_tensors->getPtr<T*>("value_cache");
+
     //////////////////////////////////////////////////////////
     /// insert the k/v computed from inputs into k/v cache
     /// transpose kv -> kv cache

@@ -138,9 +138,9 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     params.q = reinterpret_cast<const DataType*>(q_buf);
     params.k = reinterpret_cast<const DataType*>(k_buf);
     params.v = reinterpret_cast<const DataType*>(v_buf);
-    saveDataEuropa(6144, (half *)(params.q), "layer_0_attention_q_output");
-    saveDataEuropa(1024, (half *)(params.k), "layer_0_attention_k_output");
-    saveDataEuropa(1024, (half *)(params.v), "layer_0_attention_v_output");
+    // saveDataEuropa(6144, (half *)(params.q), "layer_0_attention_q_output");
+    // saveDataEuropa(1024, (half *)(params.k), "layer_0_attention_k_output");
+    // saveDataEuropa(1024, (half *)(params.v), "layer_0_attention_v_output");
 
     // printf("\n  params.q == params.q_bias ? %d  \n", int(params.q == params.q_bias));
 
@@ -197,9 +197,9 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     }
 
 
-    saveDataEuropa(6144, (half *)(params.q_bias), "layer_0_attention_q_bias_output");
-    saveDataEuropa(1024, (half *)(params.k_bias), "layer_0_attention_k_bias_output");
-    saveDataEuropa(1024, (half *)(params.v_bias), "layer_0_attention_v_bias_output");
+    // saveDataEuropa(6144, (half *)(params.q_bias), "layer_0_attention_q_bias_output");
+    // saveDataEuropa(1024, (half *)(params.k_bias), "layer_0_attention_k_bias_output");
+    // saveDataEuropa(1024, (half *)(params.v_bias), "layer_0_attention_v_bias_output");
 
     PUSH_RANGE("scaled dot-product fusion");
     masked_multihead_attention(params, stream);

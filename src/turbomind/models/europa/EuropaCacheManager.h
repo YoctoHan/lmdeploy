@@ -16,14 +16,14 @@ namespace turbomind {
 class EuropaCacheManager {
 public:
     EuropaCacheManager(size_t      layer_num,
-                      size_t      head_num,
-                      size_t      size_per_head,
-                      size_t      max_seq_len,
-                      size_t      elem_bits,
-                      size_t      max_entry_count,
-                      size_t      chunk_size,
-                      int         rank,
-                      IAllocator* allocator):
+                       size_t      head_num,
+                       size_t      size_per_head,
+                       size_t      max_seq_len,
+                       size_t      elem_bits,
+                       size_t      max_entry_count,
+                       size_t      chunk_size,
+                       int         rank,
+                       IAllocator* allocator):
         layer_num_(layer_num),
         head_num_(head_num),
         size_per_head_(size_per_head),

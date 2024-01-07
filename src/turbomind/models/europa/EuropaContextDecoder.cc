@@ -64,9 +64,9 @@ void EuropaContextDecoder<T>::freeBuffer()
 
 template<typename T>
 void EuropaContextDecoder<T>::initialize(const EuropaAttentionParams& attn_params,
-                                            size_t                          kv_head_num,
-                                            bool                            use_fmha,
-                                            int                             quant_policy)
+                                         size_t                          kv_head_num,
+                                         bool                            use_fmha,
+                                         int                             quant_policy)
 {
     h_pinned_token_num_ptr_ = (size_t*)allocator_->reMalloc(h_pinned_token_num_ptr_, sizeof(size_t), true, true);
 
@@ -172,11 +172,11 @@ void EuropaContextDecoder<T>::forward(std::vector<Tensor>*                      
 }
 
 template<typename T>
-void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*            output_tensors,
-                                         const std::unordered_map<std::string, Tensor>*      input_tensors,
-                                         const std::vector<EuropaDecoderLayerWeight<T>*>* decoder_layer_weights,
-                                         const T**                                            final_layernorm_weight,
-                                         const T**                                            final_layernorm_bias)
+void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*             output_tensors,
+                                      const std::unordered_map<std::string, Tensor>*       input_tensors,
+                                      const std::vector<EuropaDecoderLayerWeight<T>*>*     decoder_layer_weights,
+                                      const T**                                            final_layernorm_weight,
+                                      const T**                                            final_layernorm_bias)
 {
     /**
      * input tensors:
@@ -294,7 +294,9 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
         invokeAddResidual(decoder_input_output, decoder_output, sess.token_num, hidden_units_, stream_);
         sync_check_cuda_error();
     }
-    
+
+    // exit(0);
+
     invokeGeneralLayerNorm(decoder_output,
                            decoder_input_output,
                            *final_layernorm_weight,

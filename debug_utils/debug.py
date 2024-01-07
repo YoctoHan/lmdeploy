@@ -58,7 +58,7 @@ def main():
         # ("layer_0_attention_q_output", np.float32, 6144),
         # ("layer_0_attention_k_output", np.float32, 1024),
         # ("layer_0_attention_v_output", np.float32, 1024),
-        ("layer_0_attention_output", np.float32, 6144),
+        # ("layer_0_attention_output", np.float32, 6144),
     ]
 
     base_path = "/data/yocto_bak/analyse/"
@@ -71,7 +71,7 @@ def main():
         if mean_absolute_error is not None:
             print(f"Mean absolute error for {item}: {mean_absolute_error}")
 
-def test():
+def test_attention():
     base_path = "/data/yocto_bak/analyse/"
 
     lmdeploy_query_path = construct_file_path(base_path, "lmdeploy", "layer_0_attention_q_output")
@@ -130,10 +130,59 @@ def test():
     print(np.mean(np.abs(lmdeploy_key - megatron_key)))
     print(np.mean(np.abs(lmdeploy_value - megatron_value)))
     print(np.mean(np.abs(lmdeploy_output - megatron_output)))
+
+    qk = np.sum([megatron_query[0][0][i] * megatron_key[0][i] for i in range(128)])
     
     import pdb;pdb.set_trace()
 
+def test_cache():
+    base_path = "/data/yocto_bak/analyse/"
+
+    lmdeploy_kcache_path = construct_file_path(base_path, "lmdeploy", "k_cache")
+    megatron_kcache_path = construct_file_path(base_path, "megatron", "k_cache")
+
+    lmdeploy_vcache_path = construct_file_path(base_path, "lmdeploy", "v_cache")
+    megatron_vcache_path = construct_file_path(base_path, "megatron", "v_cache")
+
+    lmdeploy_kcache = np.fromfile(lmdeploy_kcache_path, dtype=np.float32, count=40 * 78 * 8 * 128)
+    megatron_kcache = np.fromfile(megatron_kcache_path, dtype=np.float32, count=40 * 78 * 8 * 128)
+
+    lmdeploy_vcache = np.fromfile(lmdeploy_vcache_path, dtype=np.float32, count=40 * 78 * 8 * 128)
+    megatron_vcache = np.fromfile(megatron_vcache_path, dtype=np.float32, count=40 * 78 * 8 * 128)
+    
+    lmdeploy_kcache = lmdeploy_kcache.reshape([40, 78, 8, 128])
+    megatron_kcache = megatron_kcache.reshape([40, 78, 8, 128])
+    
+    lmdeploy_vcache = lmdeploy_vcache.reshape([40, 78, 8, 128])
+    megatron_vcache = megatron_vcache.reshape([40, 78, 8, 128])
+    
+    import pdb;pdb.set_trace()
+
+def test():
+    base_path = "/data/yocto_bak/analyse/"
+
+    lmdeploy_key_path = construct_file_path(base_path, "lmdeploy", "key_check")
+    megatron_key_path = construct_file_path(base_path, "megatron", "key_check")
+
+    lmdeploy_value_path = construct_file_path(base_path, "lmdeploy", "value_check")
+    megatron_value_path = construct_file_path(base_path, "megatron", "value_check")
+
+    lmdeploy_key = np.fromfile(lmdeploy_key_path, dtype=np.float32, count=78 * 8 * 128)
+    megatron_key = np.fromfile(megatron_key_path, dtype=np.float32, count=78 * 8 * 128)
+
+    lmdeploy_value = np.fromfile(lmdeploy_value_path, dtype=np.float32, count=78 * 8 * 128)
+    megatron_value = np.fromfile(megatron_value_path, dtype=np.float32, count=78 * 8 * 128)
+    
+    lmdeploy_key = lmdeploy_key.reshape([8, 78, 128]).transpose([1, 0, 2])
+    megatron_key = megatron_key.reshape([78, 8, 128])
+    
+    lmdeploy_value = lmdeploy_value.reshape([8, 78, 128]).transpose([1, 0, 2])
+    megatron_value = megatron_value.reshape([78, 8, 128])
+    
+    import pdb;pdb.set_trace()
 
 if __name__ == "__main__":
     # main()
+    # test_cache()
+    # test_attention()
     test()

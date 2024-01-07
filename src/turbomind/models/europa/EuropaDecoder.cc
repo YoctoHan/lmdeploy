@@ -220,7 +220,6 @@ void EuropaDecoder<T>::forward(std::unordered_map<std::string, Tensor>*        o
         // saveDataEuropa(1 * 6144, (half *)decoder_output, "layer_0_pre_attention_layernorm_output");
         // exit(0);
         forwardSelfAttn(sess, decoder_output, input_tensors, layer);
-        saveDataEuropa(1 * 6144, (half *)decoder_output, "layer_0_attention_output");
         exit(0);
         invokeAddResidual(decoder_output, decoder_input, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
