@@ -1820,28 +1820,22 @@ __global__ void decoder_add_fusedQKV_bias_transpose_kernel(T* q_buf,
 
     // load Q and apply bias
     q = *reinterpret_cast<const Vec_t*>(&QKV[src_q_idx]);
-    // if (qkv_bias) {
-    //     q_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx]);
-    //     q      = mmha::add(q, q_bias);
-    // }
 
     // load KV and apply bias
     if (group_idy < 1) {
         k = *reinterpret_cast<const Vec_t*>(&QKV[src_k_idx]);
         v = *reinterpret_cast<const Vec_t*>(&QKV[src_v_idx]);
-        // if (qkv_bias) {
-        //     k_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + k_offset]);
-        //     v_bias = *reinterpret_cast<const Vec_t*>(&qkv_bias[hidden_idx + v_offset]);
-        //     k      = mmha::add(k, k_bias);
-        //     v      = mmha::add(v, v_bias);
-        // }
     }
 
-    // const int dest_q_idx = head_idx * size_per_head  + tidx * vec_size;
+    // // [6, 8, 128]
+    // const int dest_q_idx = group_idy * kv_head_num * size_per_head 
+    //                      + group_idx * size_per_head 
+    //                      + tidx * vec_size;
     // const int dest_kv_idx = group_idx * size_per_head + tidx * vec_size;
 
-    const int dest_q_idx = group_idy * kv_head_num * size_per_head 
-                         + group_idx * size_per_head 
+    // [8, 6, 128]
+    const int dest_q_idx = group_idx * group_size * size_per_head 
+                         + group_idy * size_per_head 
                          + tidx * vec_size;
     const int dest_kv_idx = group_idx * size_per_head + tidx * vec_size;
 

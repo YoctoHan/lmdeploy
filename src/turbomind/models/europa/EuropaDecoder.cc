@@ -220,29 +220,12 @@ void EuropaDecoder<T>::forward(std::unordered_map<std::string, Tensor>*        o
         // saveDataEuropa(1 * 6144, (half *)decoder_output, "layer_0_pre_attention_layernorm_output");
         // exit(0);
         forwardSelfAttn(sess, decoder_output, input_tensors, layer);
-        exit(0);
+        // exit(0);
         invokeAddResidual(decoder_output, decoder_input, sess.batch_size, hidden_units_, stream_);
         sync_check_cuda_error();
-
-        // {
-        //     int num_element = 6144;
-        //     half* data_host = new half[num_element];
-        //     cudaD2Hcpy(data_host, (half *)(decoder_output), num_element);
-
-        //     std::vector<float> vec_float(num_element);
-        //     std::copy(data_host, data_host+num_element, vec_float.begin());
-
-        //     std::string file_name = "/data/yocto_bak/analyse/decoder/lmdeploy_layer_0_attention_output.bin";
-        //     std::ofstream outfile(file_name, std::ios::binary);
-        //     if (outfile.is_open())
-        //     {   
-        //         std::cout << std::endl << "dumping to " << file_name << std::endl;
-        //         outfile.write((char*)vec_float.data(), num_element * sizeof(float));
-        //         outfile.close();
-        //     }
-        //     delete[] data_host;
-        // }
+        // saveDataEuropa(1 * 6144, (half *)decoder_output, "1109_layer_0_attention_output");
         // exit(0);
+
 
         invokeGeneralLayerNorm(decoder_input,
                                decoder_output,

@@ -249,6 +249,9 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
     sync_check_cuda_error();
 
     for (size_t layer = 0; layer < num_layer_; ++layer) {
+        // std::string filename = "0108_layer_" + std::to_string(layer) + "_input";
+        // saveDataEuropa(78 * 6144, (half *)decoder_input_output, filename);
+        
         invokeGeneralLayerNorm(decoder_output,
                                decoder_input_output,
                                decoder_layer_weights->at(layer)->pre_self_attn_norm_weights,
@@ -293,10 +296,63 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
         
         invokeAddResidual(decoder_input_output, decoder_output, sess.token_num, hidden_units_, stream_);
         sync_check_cuda_error();
+
+        // filename = "0108_layer_" + std::to_string(layer) + "_output";
+        // saveDataEuropa(78 * 6144, (half *)decoder_input_output, filename);
     }
 
-    // exit(0);
 
+    // void** host_key_ptr = new void*[1];
+    // void** host_value_ptr = new void*[1];
+    // cudaMemcpy(host_key_ptr, (output_tensors->at("key_cache").getPtr<T*>()), sizeof(void*), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(host_value_ptr, (output_tensors->at("value_cache").getPtr<T*>()), sizeof(void*), cudaMemcpyDeviceToHost);
+
+    // {
+    //     int num_element = 8192 * 8 * 128 * 40;
+    //     std::string keyCacheFilePath = "/data/yocto_bak/analyse/lmdeploy/1109_key_cache.bin";
+    //     std::string valueCacheFilePath = "/data/yocto_bak/analyse/lmdeploy/1109_value_cache.bin";
+        
+    //     // Allocate host memorys
+    //     T* h_key_data = new T[num_element];
+    //     T* h_value_data = new T[num_element];
+
+    //     // Copy data from device to host
+    //     cudaMemcpy(h_key_data, host_key_ptr[0], num_element * sizeof(T), cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(h_value_data, host_value_ptr[0], num_element * sizeof(T), cudaMemcpyDeviceToHost);
+
+    //     // Save data to file
+    //     std::ofstream outfileKey(keyCacheFilePath, std::ios::binary);
+    //     if (outfileKey.is_open()) {
+    //         printf("\n dumping to file: %s \n", keyCacheFilePath.c_str());
+    //         outfileKey.write((char*)h_key_data, num_element * sizeof(T));
+    //         if (outfileKey.fail()) {
+    //             printf("Error writing to file.\n");
+    //         }
+    //         outfileKey.close();
+    //     } else {
+    //         printf("Unable to open file.\n");
+    //     }
+        
+
+    //     // Save data to file
+    //     std::ofstream outfileValue(valueCacheFilePath, std::ios::binary);
+    //     if (outfileValue.is_open()) {
+    //         printf("\n dumping to file: %s \n", valueCacheFilePath.c_str());
+    //         outfileValue.write((char*)h_value_data, num_element * sizeof(T));
+    //         if (outfileValue.fail()) {
+    //             printf("Error writing to file.\n");
+    //         }
+    //         outfileValue.close();
+    //     } else {
+    //         printf("Unable to open file.\n");
+    //     }
+        
+    //     // Free host memory
+    //     delete[] h_key_data;
+    //     delete[] h_value_data;
+    // }
+
+    // saveDataEuropa(78 * 6144, (half *)decoder_input_output, "final_layernorm_input");
     invokeGeneralLayerNorm(decoder_output,
                            decoder_input_output,
                            *final_layernorm_weight,
@@ -309,6 +365,8 @@ void EuropaContextDecoder<T>::forward(std::unordered_map<std::string, Tensor>*  
                            0,
                            stream_);
     sync_check_cuda_error();
+    // saveDataEuropa(78 * 6144, (half *)decoder_output, "final_layernorm_output");
+    // exit(0);
 
     if (is_free_buffer_after_forward_) {
         freeBuffer();

@@ -7,19 +7,17 @@ std::string getFilePath(const std::string& filename) {
 
 void saveDataEuropa(int num_element, half* d_data, const std::string& file_) {
     std::string filePath = getFilePath(file_);
-
     // Allocate host memorys
     half* h_data = new half[num_element];
 
     // Copy data from device to host
     cudaMemcpy(h_data, d_data, num_element * sizeof(half), cudaMemcpyDeviceToHost);
-
     // Convert data from half to float
     std::vector<float> vec_float(num_element);
     for (int i = 0; i < num_element; ++i) {
         vec_float[i] = static_cast<float>(h_data[i]);
+        // printf("%f\n", vec_float[i]);
     }
-
     // Save data to file
     std::ofstream outfile(filePath, std::ios::binary);
     if (outfile.is_open()) {
@@ -32,7 +30,6 @@ void saveDataEuropa(int num_element, half* d_data, const std::string& file_) {
     } else {
         printf("Unable to open file.\n");
     }
-
     // Free host memory
     delete[] h_data;
 }

@@ -515,20 +515,20 @@ bool EuropaBatch<T>::generate()
     // not supported yet.
     bool should_stop{};
     europa_->dynamicDecode(token_ids_buf_,
-                               finished_buf_,
-                               sequence_lengths_,
-                               &should_stop,
-                               &inputs_,
-                               &outputs_,
-                               logits_buf_,
-                               seq_limit_len_,
-                               context_length_buf_,
-                               end_ids_buf_,
-                               step_,
-                               0,
-                               max_context_len_,
-                               session_len_ * 2,
-                               batch_size_);
+                           finished_buf_,
+                           sequence_lengths_,
+                           &should_stop,
+                           &inputs_,
+                           &outputs_,
+                           logits_buf_,
+                           seq_limit_len_,
+                           context_length_buf_,
+                           end_ids_buf_,
+                           step_,
+                           0,
+                           max_context_len_,
+                           session_len_ * 2,
+                           batch_size_);
 
     if (debug_ && rank_ == 0) {
         std::vector<int> curr(batch_size_);

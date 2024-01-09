@@ -138,9 +138,13 @@ static inline void fusedQKV_masked_attention_dispatch(const T*     qkv_buf,
     params.q = reinterpret_cast<const DataType*>(q_buf);
     params.k = reinterpret_cast<const DataType*>(k_buf);
     params.v = reinterpret_cast<const DataType*>(v_buf);
-    // saveDataEuropa(6144, (half *)(params.q), "layer_0_attention_q_output");
-    // saveDataEuropa(1024, (half *)(params.k), "layer_0_attention_k_output");
-    // saveDataEuropa(1024, (half *)(params.v), "layer_0_attention_v_output");
+    // saveDataEuropa(6144, (half *)(params.q), "1109_layer_0_query");
+    // saveDataEuropa(1024, (half *)(params.k), "1109_layer_0_key");
+    // saveDataEuropa(1024, (half *)(params.v), "1109_layer_0_value");
+    // saveDataEuropa(6144, (half *)(q_bias_buf), "1109_layer_0_query_bias");
+    // saveDataEuropa(1024, (half *)(k_bias_buf), "1109_layer_0_key_bias");
+    // saveDataEuropa(1024, (half *)(v_bias_buf), "1109_layer_0_value_bias");
+    // exit(0);
 
     // printf("\n  params.q == params.q_bias ? %d  \n", int(params.q == params.q_bias));
 

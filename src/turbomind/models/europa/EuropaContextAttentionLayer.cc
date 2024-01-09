@@ -186,16 +186,12 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
     // int err_code = cudaStreamSynchronize(stream_);
     // printf("\n err_code = %d \n", err_code);
 
-    saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "key_check");
-    saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "value_check");
-    exit(0);
-
     const size_t layer_offset = layer_id * local_kv_head_num_ * max_seq_len * size_per_head_;
     // printf("\n layer_id = %d", int(layer_id));
     // printf("\n local_kv_head_num_ = %d", int(local_kv_head_num_));
     // printf("\n max_seq_len = %d", int(max_seq_len));
     // printf("\n size_per_head_ = %d", int(size_per_head_));
-    printf("\n layer_offset = %d", int(layer_offset));
+    // printf("\n layer_offset = %d", int(layer_offset));
 
     auto k_cache_ptrs = output_tensors->getPtr<T*>("key_cache");
     auto v_cache_ptrs = output_tensors->getPtr<T*>("value_cache");
@@ -206,6 +202,11 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
     // put k/v_buf from shape [B, kvH, s, D] to
     // k_buf_2 [B, kvH, s, D] -> key_cache [B, kvH, S[t:t+s], D/x, x]
     // v_buf_2 [B, kvH, s, D] -> val_cache [B, kvH, S[t:t+s], D/x, x]
+
+    // saveDataEuropa(78 * 48 * 128, (half *)q_buf_2_, "0108_layer_0_query");
+    // saveDataEuropa(78 * 8 * 128, (half *)k_buf_2_, "0108_layer_0_key");
+    // saveDataEuropa(78 * 8 * 128, (half *)v_buf_2_, "0108_layer_0_value");
+
     invokeExtendKVCache(k_cache_ptrs,
                         v_cache_ptrs,
                         layer_offset,
@@ -222,7 +223,8 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
                         quant_policy_,
                         weights->past_kv_scale.data());
     sync_check_cuda_error();
-    
+    // exit(0);
+
     // use_fmha_ = true
     if (use_fmha_) {
         fusedMultiHeadAttention(k_cache_ptrs,
@@ -255,9 +257,9 @@ inline void EuropaContextAttentionLayer<T>::forward(TensorMap*                  
     //////////////////////////////////////////////
     /// output gemm <Bs,HD> -> <Bs,HD>
     linear_.forward(attention_out, qkv_buf_3_, num_token, weights->output);
-    // saveDataEuropa(78 * 6144, (half *)qkv_buf_3_, "layer_0_attention_linear_input");
-    // saveDataEuropa(6144 * 6144, (half *)(weights->output.kernel), "layer_0_attention_linear_weight");
-    // saveDataEuropa(78 * 6144, (half *)attention_out, "layer_0_attention_linear_output");
+    // saveDataEuropa(78 * 6144, (half *)qkv_buf_3_, "0108_layer_0_attention_linear_input");
+    // saveDataEuropa(6144 * 6144, (half *)(weights->output.kernel), "0108_layer_0_attention_linear_weight");
+    // saveDataEuropa(78 * 6144, (half *)attention_out, "0108_layer_0_attention_linear_output");
     // exit(0);
     invokeAddBias(attention_out, weights->output.bias, num_token, hidden_units_, stream_);
     sync_check_cuda_error();
@@ -316,7 +318,7 @@ void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_pt
         true,
     };
 
-    // // 打印 q 的形状
+    // // 打印 q 的形�?
     // printf("\n q_1 :%d * %d * %d = %d, q_2 : %d, q_3 : %d * %d = %d", 
     //         int(local_head_num_), 
     //         int(max_q_len), 
@@ -327,7 +329,7 @@ void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_pt
     //         int(size_per_head_),
     //         int(max_q_len * size_per_head_));
 
-    // // 打印 k 的形状
+    // // 打印 k 的形�?
     // printf("\n k_1 : %d * %d * %d = %d, k_2 : %d, k_3 : %d * %d = %d", 
     //         int(local_head_num_), 
     //         int(max_seq_len), 
@@ -338,7 +340,7 @@ void EuropaContextAttentionLayer<T>::fusedMultiHeadAttention(T**    key_cache_pt
     //         int(size_per_head_),
     //         int(max_seq_len * size_per_head_));
 
-    // // 打印 v 的形状
+    // // 打印 v 的形�?
     // printf("\n v_1 : %d * %d * %d = %d, v_2 : %d, v_3 : %d * %d = %d", 
     //         int(local_head_num_), 
     //         int(max_seq_len), 
