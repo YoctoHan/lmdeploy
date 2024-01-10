@@ -24,11 +24,6 @@ class ModelStub(object):
                 request_serializer=protobufs_dot_model__pb2.Empty.SerializeToString,
                 response_deserializer=protobufs_dot_model__pb2.DecoderResponse.FromString,
                 )
-        self.Eval = channel.unary_unary(
-                '/model.Model/Eval',
-                request_serializer=protobufs_dot_model__pb2.EvalRequest.SerializeToString,
-                response_deserializer=protobufs_dot_model__pb2.EvalResponse.FromString,
-                )
         self.CreatePrediction = channel.unary_unary(
                 '/model.Model/CreatePrediction',
                 request_serializer=protobufs_dot_model__pb2.PredictRequest.SerializeToString,
@@ -44,6 +39,11 @@ class ModelStub(object):
                 request_serializer=protobufs_dot_model__pb2.Empty.SerializeToString,
                 response_deserializer=protobufs_dot_model__pb2.ConfigResponse.FromString,
                 )
+        self.Init = channel.unary_unary(
+                '/model.Model/Init',
+                request_serializer=protobufs_dot_model__pb2.Strategies.SerializeToString,
+                response_deserializer=protobufs_dot_model__pb2.Empty.FromString,
+                )
 
 
 class ModelServicer(object):
@@ -56,12 +56,6 @@ class ModelServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Decoder(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Eval(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -85,6 +79,12 @@ class ModelServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Init(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ModelServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -97,11 +97,6 @@ def add_ModelServicer_to_server(servicer, server):
                     servicer.Decoder,
                     request_deserializer=protobufs_dot_model__pb2.Empty.FromString,
                     response_serializer=protobufs_dot_model__pb2.DecoderResponse.SerializeToString,
-            ),
-            'Eval': grpc.unary_unary_rpc_method_handler(
-                    servicer.Eval,
-                    request_deserializer=protobufs_dot_model__pb2.EvalRequest.FromString,
-                    response_serializer=protobufs_dot_model__pb2.EvalResponse.SerializeToString,
             ),
             'CreatePrediction': grpc.unary_unary_rpc_method_handler(
                     servicer.CreatePrediction,
@@ -117,6 +112,11 @@ def add_ModelServicer_to_server(servicer, server):
                     servicer.Config,
                     request_deserializer=protobufs_dot_model__pb2.Empty.FromString,
                     response_serializer=protobufs_dot_model__pb2.ConfigResponse.SerializeToString,
+            ),
+            'Init': grpc.unary_unary_rpc_method_handler(
+                    servicer.Init,
+                    request_deserializer=protobufs_dot_model__pb2.Strategies.FromString,
+                    response_serializer=protobufs_dot_model__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -159,23 +159,6 @@ class Model(object):
         return grpc.experimental.unary_unary(request, target, '/model.Model/Decoder',
             protobufs_dot_model__pb2.Empty.SerializeToString,
             protobufs_dot_model__pb2.DecoderResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def Eval(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/model.Model/Eval',
-            protobufs_dot_model__pb2.EvalRequest.SerializeToString,
-            protobufs_dot_model__pb2.EvalResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -227,5 +210,22 @@ class Model(object):
         return grpc.experimental.unary_unary(request, target, '/model.Model/Config',
             protobufs_dot_model__pb2.Empty.SerializeToString,
             protobufs_dot_model__pb2.ConfigResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Init(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/model.Model/Init',
+            protobufs_dot_model__pb2.Strategies.SerializeToString,
+            protobufs_dot_model__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -11,8 +11,8 @@ cd "$target_directory" || exit
 
 WORK_DIR="/data/yocto_bak/lmdeploy"
 BUILD_DIR="build"
-# PYTHON_MODULE="lmdeploy.turbomind.sever_fastertransformer_gpt"
-PYTHON_MODULE="lmdeploy.turbomind.chat_star_coder"
+PYTHON_MODULE="lmdeploy.turbomind.sever_fastertransformer_gpt"
+# PYTHON_MODULE="lmdeploy.turbomind.chat_star_coder"
 # STAR_CODER_WORKSPACE="./star_coder_workspace/"
 # VOCAB_DIR="/data3/StarCoderBase/"
 STAR_CODER_WORKSPACE="./europa_workspace/"

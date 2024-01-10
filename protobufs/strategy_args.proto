@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "/strategy/args";
+
+package strategy.args;
+
+// Penalization args
+message PunishTokens {
+  double scaling = 1;
+  repeated int64 comment_tokens = 2;
+  repeated int64 space_tokens = 3;
+}

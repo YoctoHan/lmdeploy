@@ -7,21 +7,13 @@ package model;
 service Model {
   rpc Encoder(EncoderRequest) returns (EncoderResponse) {}
   rpc Decoder(Empty) returns (DecoderResponse) {}
-  rpc Eval(EvalRequest) returns (EvalResponse) {}
   rpc CreatePrediction(PredictRequest) returns (Empty) {}
   rpc GetResult(Empty) returns (PredictResponse) {}
   rpc Config(Empty) returns (ConfigResponse) {}
+  rpc Init(Strategies) returns (Empty) {}
 }
 
 message Empty {}
-
-message EvalRequest {
-  string context = 1;
-}
-
-message EvalResponse {
-  string output = 1;
-}
 
 message EncoderRequest {
   string context = 1;
@@ -55,11 +47,14 @@ message PredictRequest {
   string id = 2;
   string sampling_type = 3;
   int64 beam_width = 4;
+  repeated int64 strategy_ids = 5; // list of strategy ids, eval by order
+  bool debug = 6;
 }
 
 message PredictResponse {
   repeated int64 out = 1;
   repeated PredictDetail detail = 2;
+  string debug_out = 3;
 }
 
 message PredictDetail {
@@ -72,4 +67,19 @@ message ConfigResponse {
   bool is_less_content_token = 2;
   bool is_has_not_file_path = 3;
   bool is_post_after_code = 4;
+  int64 connected_cnt = 5;
+  string checkpoint_hash = 6;
+}
+
+message Strategy {
+  int64 type = 1;
+  // type 0: notUsed, args: null
+  // type 1: Penalization, args: StrategyArgsForPunishTokens
+  // type 2: End of Statement Preference, args: null
+  // type 3: Probability L1 Normalization, args: null
+  bytes args = 2;
+}
+
+message Strategies {
+  map<int64, Strategy> strategies = 1; // map strategy id to strategy
 }

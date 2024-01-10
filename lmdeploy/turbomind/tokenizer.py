@@ -81,6 +81,7 @@ class GPTTokenizer(object):
         self.encoder = tokenizer_info.get("vocab")
         bpe_data = tokenizer_info.get("merges_files")
         special_tokens_dict = tokenizer_info.get("special_tokens_dict")
+        self.special_tokens_dict = special_tokens_dict
         # Yocot : 此处新加了一个stop words的字段来存储停止词，和服务端对齐
         self.stop_words = tokenizer_info.get("special_tokens_dict")["additional_special_tokens"]
         if self.encoder is None or bpe_data is None or special_tokens_dict is None:

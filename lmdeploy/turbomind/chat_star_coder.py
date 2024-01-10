@@ -95,7 +95,7 @@ def main(model_path, vocab_dir):
     tokenizer = GPTTokenizer(vocab_dir)
     tm_model = tm.TurboMind(model_path, eos_id = tokenizer.eos_id, tp=tp)
     generator = tm_model.create_instance()
-
+    import pdb;pdb.set_trace()
 
     nth_round = 1
     step = 0
@@ -127,19 +127,12 @@ def main(model_path, vocab_dir):
             seed = random.getrandbits(64)
         else:
             # prompt = model.get_prompt(prompt, nth_round == 1)
-            prompt = """import dataclasses
+            prompt = """import copy
 import os
-import os.path as osp
-import random
-import time
-
-import fire
-
-from lmdeploy import turbomind as tm
-from lmdeploy.model import MODELS
-from lmdeploy.turbomind.tokenizer import Tokenizer, GPTTokenizer
-
-os.environ['TM_LOG_LEVEL'] = 'INFO'"""
+import queue
+import sys
+import hashlib
+import threading"""
             input_ids = tokenizer.encode(prompt)
             if step + len(input_ids) >= tm_model.session_len:
                 print('WARNING: exceed session max length.'

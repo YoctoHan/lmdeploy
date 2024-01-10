@@ -9,18 +9,6 @@ class Empty(_message.Message):
     __slots__ = []
     def __init__(self) -> None: ...
 
-class EvalRequest(_message.Message):
-    __slots__ = ["context"]
-    CONTEXT_FIELD_NUMBER: _ClassVar[int]
-    context: str
-    def __init__(self, context: _Optional[str] = ...) -> None: ...
-
-class EvalResponse(_message.Message):
-    __slots__ = ["output"]
-    OUTPUT_FIELD_NUMBER: _ClassVar[int]
-    output: str
-    def __init__(self, output: _Optional[str] = ...) -> None: ...
-
 class EncoderRequest(_message.Message):
     __slots__ = ["context"]
     CONTEXT_FIELD_NUMBER: _ClassVar[int]
@@ -80,24 +68,30 @@ class Prompt(_message.Message):
     def __init__(self, file_path: _Optional[str] = ..., code_string: _Optional[str] = ..., signature: _Optional[str] = ...) -> None: ...
 
 class PredictRequest(_message.Message):
-    __slots__ = ["tokens", "id", "sampling_type", "beam_width"]
+    __slots__ = ["tokens", "id", "sampling_type", "beam_width", "strategy_ids", "debug"]
     TOKENS_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     SAMPLING_TYPE_FIELD_NUMBER: _ClassVar[int]
     BEAM_WIDTH_FIELD_NUMBER: _ClassVar[int]
+    STRATEGY_IDS_FIELD_NUMBER: _ClassVar[int]
+    DEBUG_FIELD_NUMBER: _ClassVar[int]
     tokens: _containers.RepeatedScalarFieldContainer[int]
     id: str
     sampling_type: str
     beam_width: int
-    def __init__(self, tokens: _Optional[_Iterable[int]] = ..., id: _Optional[str] = ..., sampling_type: _Optional[str] = ..., beam_width: _Optional[int] = ...) -> None: ...
+    strategy_ids: _containers.RepeatedScalarFieldContainer[int]
+    debug: bool
+    def __init__(self, tokens: _Optional[_Iterable[int]] = ..., id: _Optional[str] = ..., sampling_type: _Optional[str] = ..., beam_width: _Optional[int] = ..., strategy_ids: _Optional[_Iterable[int]] = ..., debug: bool = ...) -> None: ...
 
 class PredictResponse(_message.Message):
-    __slots__ = ["out", "detail"]
+    __slots__ = ["out", "detail", "debug_out"]
     OUT_FIELD_NUMBER: _ClassVar[int]
     DETAIL_FIELD_NUMBER: _ClassVar[int]
+    DEBUG_OUT_FIELD_NUMBER: _ClassVar[int]
     out: _containers.RepeatedScalarFieldContainer[int]
     detail: _containers.RepeatedCompositeFieldContainer[PredictDetail]
-    def __init__(self, out: _Optional[_Iterable[int]] = ..., detail: _Optional[_Iterable[_Union[PredictDetail, _Mapping]]] = ...) -> None: ...
+    debug_out: str
+    def __init__(self, out: _Optional[_Iterable[int]] = ..., detail: _Optional[_Iterable[_Union[PredictDetail, _Mapping]]] = ..., debug_out: _Optional[str] = ...) -> None: ...
 
 class PredictDetail(_message.Message):
     __slots__ = ["prob", "candidate"]
@@ -115,13 +109,38 @@ class PredictDetail(_message.Message):
     def __init__(self, prob: _Optional[float] = ..., candidate: _Optional[_Mapping[int, float]] = ...) -> None: ...
 
 class ConfigResponse(_message.Message):
-    __slots__ = ["is_instruct_model", "is_less_content_token", "is_has_not_file_path", "is_post_after_code"]
+    __slots__ = ["is_instruct_model", "is_less_content_token", "is_has_not_file_path", "is_post_after_code", "connected_cnt", "checkpoint_hash"]
     IS_INSTRUCT_MODEL_FIELD_NUMBER: _ClassVar[int]
     IS_LESS_CONTENT_TOKEN_FIELD_NUMBER: _ClassVar[int]
     IS_HAS_NOT_FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     IS_POST_AFTER_CODE_FIELD_NUMBER: _ClassVar[int]
+    CONNECTED_CNT_FIELD_NUMBER: _ClassVar[int]
+    CHECKPOINT_HASH_FIELD_NUMBER: _ClassVar[int]
     is_instruct_model: bool
     is_less_content_token: bool
     is_has_not_file_path: bool
     is_post_after_code: bool
-    def __init__(self, is_instruct_model: bool = ..., is_less_content_token: bool = ..., is_has_not_file_path: bool = ..., is_post_after_code: bool = ...) -> None: ...
+    connected_cnt: int
+    checkpoint_hash: str
+    def __init__(self, is_instruct_model: bool = ..., is_less_content_token: bool = ..., is_has_not_file_path: bool = ..., is_post_after_code: bool = ..., connected_cnt: _Optional[int] = ..., checkpoint_hash: _Optional[str] = ...) -> None: ...
+
+class Strategy(_message.Message):
+    __slots__ = ["type", "args"]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    type: int
+    args: bytes
+    def __init__(self, type: _Optional[int] = ..., args: _Optional[bytes] = ...) -> None: ...
+
+class Strategies(_message.Message):
+    __slots__ = ["strategies"]
+    class StrategiesEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: Strategy
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[Strategy, _Mapping]] = ...) -> None: ...
+    STRATEGIES_FIELD_NUMBER: _ClassVar[int]
+    strategies: _containers.MessageMap[int, Strategy]
+    def __init__(self, strategies: _Optional[_Mapping[int, Strategy]] = ...) -> None: ...

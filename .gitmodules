@@ -1,0 +1,3 @@
+[submodule "aixm_core"]
+	path = aixm_core
+	url = git@github.com:aixcoder-plugin/aixm_core.git

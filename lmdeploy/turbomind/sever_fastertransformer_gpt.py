@@ -13,7 +13,8 @@ import fire
 
 from lmdeploy import turbomind as tm
 from lmdeploy.model import MODELS
-from lmdeploy.turbomind.tokenizer import Tokenizer, GPTTokenizer
+# from lmdeploy.turbomind.tokenizer import Tokenizer, GPTTokenizer
+from aixm_core.aixmeg.tokenizer import GPTTokenizer
 
 # TurboMind的日志等级
 os.environ['TM_LOG_LEVEL'] = 'ERROR'
@@ -70,7 +71,7 @@ def get_gen_param(cap,
 class ModelServicer(model_pb2_grpc.ModelServicer):
 
     def __init__(self, model_path, vocab_dir):
-        self.tokenizer = GPTTokenizer(vocab_dir="/data3/StarCoderBase/")
+        self.tokenizer = GPTTokenizer(vocab_dir="/data3/aix2_base_v2/")
         self.tm_model = tm.TurboMind(model_path, eos_id = self.tokenizer.eos_id, tp=1)
         self.generator = self.tm_model.create_instance()
         self.output = None
@@ -115,7 +116,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         
         gen_param = get_gen_param(cap, model.sampling_param, nth_round,
                                     step)
-
+        # import pdb;pdb.set_trace()
         self.output = self.generator.stream_infer(
                         session_id=session_id,
                         input_ids=[tokens],
@@ -137,6 +138,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
                 v = self.tokenizer.encoder[k]
                 assert v not in tmp.decoder
                 tmp.decoder[v] = k
+            # import pdb;pdb.set_trace()
             for v in self.tokenizer.special_tokens_dict["additional_special_tokens"]:
                 assert v in self.tokenizer.encoder
                 tmp.special_tokens.append(v)
@@ -165,9 +167,6 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
             raise e
         return tmp
 
-    def Eval(self, req, context):
-        pass
-
     def GetResult(self):        
         try:
             res, tokens = next(self.output)[0]
@@ -176,16 +175,40 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         return res
         # return model_pb2.PredictResponse(out=res.to_list())
 
+    def Config(self, req, context):
+        # self.connected_cnt+=1
+        # print("code=5"+self.model.checkpoint_hash(), flush=True, file=sys.stderr)
+        return model_pb2.ConfigResponse(is_instruct_model=False,
+                                        is_post_after_code=False,
+                                        is_less_content_token=False,
+                                        is_has_not_file_path=False,
+                                        checkpoint_hash="5-yocto",
+                                        connected_cnt=0,
+                                        )
+
+    def Init(self, req, context):
+        return model_pb2.Empty()
+
+
 def serve():
     server = grpc.server(ThreadPoolExecutor(max_workers=10))
     model_pb2_grpc.add_ModelServicer_to_server(ModelServicer(), server)
-    server.add_insecure_port('[::]:' + str("12802"))
+    server.add_insecure_port('[::]:' + str("12310"))
     server.start()
     server.wait_for_termination()
 
 
 
 def main(model_path, vocab_dir):
+    
+    server = grpc.server(ThreadPoolExecutor(max_workers=10))
+    model_pb2_grpc.add_ModelServicer_to_server(ModelServicer(model_path, vocab_dir), server)
+    server.add_insecure_port('[::]:' + str("12310"))
+    server.start()
+    print("Launch success")
+    server.wait_for_termination()
+    exit(0)
+    
     # model_path = "./star_coder_workspace"
     # vocab_dir="/data3/StarCoderBase/"
     servicer = ModelServicer(model_path, vocab_dir)
@@ -197,6 +220,7 @@ import hashlib
 import threading"""
 
     input_ids = servicer.tokenizer.encode(input_str)
+    # import pdb;pdb.set_trace()
     servicer.CreatePrediction(input_ids, "", "", 0)
 
     past_times = []
@@ -211,7 +235,7 @@ import threading"""
 
         # print(f'{response}', end='', flush=True)
         print(input_str + response)
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
 
         # Calculate elapsed time
         end_time = time.time()

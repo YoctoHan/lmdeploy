@@ -891,8 +891,8 @@ void EuropaBatch<T>::contextDecode()
 
 template<typename T>
 void EuropaBatch<T>::outputContextLogits(T*                      context_decoder_output,
-                                            const std::vector<int>& indices,
-                                            const std::vector<int>& lengths)
+                                         const std::vector<int>& indices,
+                                         const std::vector<int>& lengths)
 {
     std::vector<float*> output_logits;
     int                 num_token = 0;
