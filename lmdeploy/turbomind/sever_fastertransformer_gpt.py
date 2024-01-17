@@ -103,7 +103,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         # Method implementation...
         session_id = 1
         cap = 'completion'
-        sys_instruct = None
+        # sys_instruct = None
         tp = 1
         stream_output = True
         nth_round = 1
@@ -111,8 +111,8 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         seed = random.getrandbits(64)
         model_name = self.tm_model.model_name
         model = MODELS.get(model_name)(capability=cap) \
-        if sys_instruct is None else MODELS.get(model_name)(
-            capability=cap, system=sys_instruct)
+        # if sys_instruct is None else MODELS.get(model_name)(
+        #     capability=cap, system=sys_instruct)
         
         gen_param = get_gen_param(cap, model.sampling_param, nth_round,
                                     step)
