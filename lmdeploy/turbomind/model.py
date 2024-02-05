@@ -2,64 +2,77 @@ from typing import List, Tuple, Optional, Dict
 
 from protobufs import model_pb2
 
+from aixm_core.aixmeg.utils import is_ampere
 from lmdeploy.turbomind.predictor import Predictor
 
 
-class Model(object):
+
+class ModelBase(object):
+    def __init__(self) -> None:
+        pass
+
+    @staticmethod
+    def is_ampere() -> bool:
+        return is_ampere()
+
+    def name(self) -> str:
+        raise NotImplementedError
+
+    def checkpoint_hash(self) -> str:
+        raise NotImplementedError
+
+    def max_len(self) -> int:
+        raise NotImplementedError
+
+    def init_strategies(self, *, strategies: model_pb2.Strategies) -> None:
+        return None
+
+    def token_info(self) -> List[model_pb2.TokenInfo]:
+        raise NotImplementedError
+
+    def prompts(self) -> Dict[str, model_pb2.Prompts]:
+        return dict()
+
+    def encode(self, *, context: str, is_prefix: bool) -> List[int]:
+        raise NotImplementedError
+
+    def predict(self, *,
+                token_ids: List[int],
+                common_len: int,
+                voting_type: int,
+                sampling_type: str,
+                uid: str,
+                strategy_ids: List[int],
+                created_just_now: bool,
+                ) -> Tuple[
+        List[int],
+        List[float],
+        List[List[int]],
+        List[List[float]],
+    ]:
+        raise NotImplementedError
+
+class Model(ModelBase):
     def __init__(self, *,
                  predictor: Predictor,
-                 is_instruct_model: bool,
-                 attention_head_type: str,
-                 is_ampere: bool,
                  ):
         self.__predictor = predictor
         self.__predictor_instance = self.__predictor.predictor.create_instance()
-        self.__is_instruct_model:bool = is_instruct_model
-        self.__is_post_after_code:bool = attention_head_type == "multiquery"
-        self.__is_less_content_token:bool = not is_ampere
-        self.__is_has_not_file_path:bool = attention_head_type == "multiquery"
 
     def get_tokenizer(self) -> str:
         return self.__predictor.tokenizer
 
-    def get_model_name(self) -> str:
+    # def get_model_name(self) -> str:
+    #     return self.__predictor.predictor.model_name
+    
+    def name(self) -> str:
         return self.__predictor.predictor.model_name
     
     def get_generator(self):
         return self.__predictor_instance
 
-    def is_instruct_model(self) -> bool:
-        return self.__is_instruct_model
-
-    def is_post_after_code(self) -> bool:
-        return self.__is_post_after_code
-
-    def is_less_content_token(self) -> bool:
-        return self.__is_less_content_token
-
-    def is_has_not_file_path(self) -> bool:
-        return self.__is_has_not_file_path
-
     def checkpoint_hash(self) -> str:
         return self.__predictor.checkpoint_head_hash
-
-    def init_strategies(self, *, strategies: model_pb2.Strategies) -> None:
-        self.__predictor.init_strategies(strategies=strategies)
-
-    def encoder(self) -> Dict[int, str]:
-        return self.__predictor.tokenizer.encoder
-
-    def special_tokens(self) -> List[str]:
-        return self.__predictor.tokenizer.special_tokens_dict["additional_special_tokens"]
-
-    def bos_token(self) -> str:
-        return self.__predictor.tokenizer.special_tokens_dict["bos_token"]
-
-    def eos_token(self) -> str:
-        return self.__predictor.tokenizer.special_tokens_dict["eos_token"]
-
-    def unk_token(self) -> str:
-        return self.__predictor.tokenizer.special_tokens_dict["unk_token"]
 
     def prompts(self) -> Dict[str, model_pb2.Prompts]:
         tmp = dict()
@@ -78,8 +91,8 @@ class Model(object):
                     ))
                 tmp[k] = prompts_obj
         return tmp
-
-    def encode(self, *, context: str) -> List[int]:
+    
+    def encode(self, *, context: str, is_prefix: bool) -> List[int]:
         tk_server = self.__predictor.tokenizer
         tmp = tk_server.tokenize(context)
         tmp = tk_server.convert_tokens_to_ids(tokens=tmp)
@@ -97,3 +110,11 @@ class Model(object):
             strategy_ids=strategy_ids,
             created_just_now=created_just_now,
         )
+
+    def token_info(self) -> List[model_pb2.TokenInfo]:
+        special = self.__predictor.tokenizer.special_tokens_dict["additional_special_tokens"]
+        tmp = []
+        for k, v in self.__predictor.tokenizer.encoder.items():
+            bs = bytearray([self.__predictor.tokenizer.byte_decoder[c] for c in k])
+            tmp.append(model_pb2.TokenInfo(value=v, context=bytes(bs), type="bytes", id_end=k in special))
+        return tmp

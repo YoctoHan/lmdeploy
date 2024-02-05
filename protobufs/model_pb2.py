@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15protobufs/model.proto\x12\x05model\"\x07\n\x05\x45mpty\"!\n\x0e\x45ncoderRequest\x12\x0f\n\x07\x63ontext\x18\x01 \x01(\t\"\"\n\x0f\x45ncoderResponse\x12\x0f\n\x07outputs\x18\x01 \x03(\x03\"\xbe\x02\n\x0f\x44\x65\x63oderResponse\x12\x34\n\x07\x64\x65\x63oder\x18\x01 \x03(\x0b\x32#.model.DecoderResponse.DecoderEntry\x12\x16\n\x0especial_tokens\x18\x02 \x03(\t\x12\x11\n\tbos_token\x18\x03 \x01(\t\x12\x11\n\teos_token\x18\x04 \x01(\t\x12\x11\n\tunk_token\x18\x05 \x01(\t\x12\x34\n\x07prompts\x18\x06 \x03(\x0b\x32#.model.DecoderResponse.PromptsEntry\x1a.\n\x0c\x44\x65\x63oderEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a>\n\x0cPromptsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1d\n\x05value\x18\x02 \x01(\x0b\x32\x0e.model.Prompts:\x02\x38\x01\"(\n\x07Prompts\x12\x1d\n\x06prompt\x18\x01 \x03(\x0b\x32\r.model.Prompt\"C\n\x06Prompt\x12\x11\n\tfile_path\x18\x01 \x01(\t\x12\x13\n\x0b\x63ode_string\x18\x02 \x01(\t\x12\x11\n\tsignature\x18\x03 \x01(\t\"|\n\x0ePredictRequest\x12\x0e\n\x06tokens\x18\x01 \x03(\x03\x12\n\n\x02id\x18\x02 \x01(\t\x12\x15\n\rsampling_type\x18\x03 \x01(\t\x12\x12\n\nbeam_width\x18\x04 \x01(\x03\x12\x14\n\x0cstrategy_ids\x18\x05 \x03(\x03\x12\r\n\x05\x64\x65\x62ug\x18\x06 \x01(\x08\"W\n\x0fPredictResponse\x12\x0b\n\x03out\x18\x01 \x03(\x03\x12$\n\x06\x64\x65tail\x18\x02 \x03(\x0b\x32\x14.model.PredictDetail\x12\x11\n\tdebug_out\x18\x03 \x01(\t\"\x87\x01\n\rPredictDetail\x12\x0c\n\x04prob\x18\x01 \x01(\x01\x12\x36\n\tcandidate\x18\x02 \x03(\x0b\x32#.model.PredictDetail.CandidateEntry\x1a\x30\n\x0e\x43\x61ndidateEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"\xb4\x01\n\x0e\x43onfigResponse\x12\x19\n\x11is_instruct_model\x18\x01 \x01(\x08\x12\x1d\n\x15is_less_content_token\x18\x02 \x01(\x08\x12\x1c\n\x14is_has_not_file_path\x18\x03 \x01(\x08\x12\x1a\n\x12is_post_after_code\x18\x04 \x01(\x08\x12\x15\n\rconnected_cnt\x18\x05 \x01(\x03\x12\x17\n\x0f\x63heckpoint_hash\x18\x06 \x01(\t\"&\n\x08Strategy\x12\x0c\n\x04type\x18\x01 \x01(\x03\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\x0c\"\x87\x01\n\nStrategies\x12\x35\n\nstrategies\x18\x01 \x03(\x0b\x32!.model.Strategies.StrategiesEntry\x1a\x42\n\x0fStrategiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12\x1e\n\x05value\x18\x02 \x01(\x0b\x32\x0f.model.Strategy:\x02\x38\x01\x32\xc2\x02\n\x05Model\x12:\n\x07\x45ncoder\x12\x15.model.EncoderRequest\x1a\x16.model.EncoderResponse\"\x00\x12\x31\n\x07\x44\x65\x63oder\x12\x0c.model.Empty\x1a\x16.model.DecoderResponse\"\x00\x12\x39\n\x10\x43reatePrediction\x12\x15.model.PredictRequest\x1a\x0c.model.Empty\"\x00\x12\x33\n\tGetResult\x12\x0c.model.Empty\x1a\x16.model.PredictResponse\"\x00\x12/\n\x06\x43onfig\x12\x0c.model.Empty\x1a\x15.model.ConfigResponse\"\x00\x12)\n\x04Init\x12\x11.model.Strategies\x1a\x0c.model.Empty\"\x00\x42\x08Z\x06/modelb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15protobufs/model.proto\x12\x05model\"\x07\n\x05\x45mpty\"4\n\x0e\x45ncoderRequest\x12\x0f\n\x07\x63ontext\x18\x01 \x01(\t\x12\x11\n\tis_prefix\x18\x02 \x01(\x08\"\"\n\x0f\x45ncoderResponse\x12\x0f\n\x07outputs\x18\x01 \x03(\x03\"I\n\tTokenInfo\x12\r\n\x05value\x18\x01 \x01(\x03\x12\x0f\n\x07\x63ontext\x18\x02 \x01(\x0c\x12\x0c\n\x04type\x18\x03 \x01(\t\x12\x0e\n\x06id_end\x18\x04 \x01(\x08\"\xad\x01\n\x0f\x44\x65\x63oderResponse\x12$\n\ntoken_info\x18\x01 \x03(\x0b\x32\x10.model.TokenInfo\x12\x34\n\x07prompts\x18\x02 \x03(\x0b\x32#.model.DecoderResponse.PromptsEntry\x1a>\n\x0cPromptsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1d\n\x05value\x18\x02 \x01(\x0b\x32\x0e.model.Prompts:\x02\x38\x01\"(\n\x07Prompts\x12\x1d\n\x06prompt\x18\x01 \x03(\x0b\x32\r.model.Prompt\"C\n\x06Prompt\x12\x11\n\tfile_path\x18\x01 \x01(\t\x12\x13\n\x0b\x63ode_string\x18\x02 \x01(\t\x12\x11\n\tsignature\x18\x03 \x01(\t\"|\n\x0ePredictRequest\x12\x0e\n\x06tokens\x18\x01 \x03(\x03\x12\n\n\x02id\x18\x02 \x01(\t\x12\x15\n\rsampling_type\x18\x03 \x01(\t\x12\x12\n\nbeam_width\x18\x04 \x01(\x03\x12\x14\n\x0cstrategy_ids\x18\x05 \x03(\x03\x12\r\n\x05\x64\x65\x62ug\x18\x06 \x01(\x08\"W\n\x0fPredictResponse\x12\x0b\n\x03out\x18\x01 \x03(\x03\x12$\n\x06\x64\x65tail\x18\x02 \x03(\x0b\x32\x14.model.PredictDetail\x12\x11\n\tdebug_out\x18\x03 \x01(\t\"\x87\x01\n\rPredictDetail\x12\x0c\n\x04prob\x18\x01 \x01(\x01\x12\x36\n\tcandidate\x18\x02 \x03(\x0b\x32#.model.PredictDetail.CandidateEntry\x1a\x30\n\x0e\x43\x61ndidateEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"4\n\x0bModelConfig\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x17\n\x0f\x63heckpoint_hash\x18\x02 \x01(\t\"E\n\rMachineConfig\x12\x10\n\x08gpu_name\x18\x01 \x01(\t\x12\x0f\n\x07gpu_cnt\x18\x02 \x01(\x03\x12\x11\n\tis_ampere\x18\x03 \x01(\x08\"\x7f\n\x0e\x43onfigResponse\x12(\n\x0cmodel_config\x18\x01 \x01(\x0b\x32\x12.model.ModelConfig\x12,\n\x0emachine_config\x18\x02 \x01(\x0b\x32\x14.model.MachineConfig\x12\x15\n\rconnected_cnt\x18\x03 \x01(\x03\"&\n\x08Strategy\x12\x0c\n\x04type\x18\x01 \x01(\x03\x12\x0c\n\x04\x61rgs\x18\x02 \x01(\x0c\"\x87\x01\n\nStrategies\x12\x35\n\nstrategies\x18\x01 \x03(\x0b\x32!.model.Strategies.StrategiesEntry\x1a\x42\n\x0fStrategiesEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12\x1e\n\x05value\x18\x02 \x01(\x0b\x32\x0f.model.Strategy:\x02\x38\x01\x32\xc2\x02\n\x05Model\x12:\n\x07\x45ncoder\x12\x15.model.EncoderRequest\x1a\x16.model.EncoderResponse\"\x00\x12\x31\n\x07\x44\x65\x63oder\x12\x0c.model.Empty\x1a\x16.model.DecoderResponse\"\x00\x12\x39\n\x10\x43reatePrediction\x12\x15.model.PredictRequest\x1a\x0c.model.Empty\"\x00\x12\x33\n\tGetResult\x12\x0c.model.Empty\x1a\x16.model.PredictResponse\"\x00\x12/\n\x06\x43onfig\x12\x0c.model.Empty\x1a\x15.model.ConfigResponse\"\x00\x12)\n\x04Init\x12\x11.model.Strategies\x1a\x0c.model.Empty\"\x00\x42\x08Z\x06/modelb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -21,8 +21,6 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'protobufs.model_pb2', _glob
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'Z\006/model'
-  _DECODERRESPONSE_DECODERENTRY._options = None
-  _DECODERRESPONSE_DECODERENTRY._serialized_options = b'8\001'
   _DECODERRESPONSE_PROMPTSENTRY._options = None
   _DECODERRESPONSE_PROMPTSENTRY._serialized_options = b'8\001'
   _PREDICTDETAIL_CANDIDATEENTRY._options = None
@@ -32,35 +30,39 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_EMPTY']._serialized_start=32
   _globals['_EMPTY']._serialized_end=39
   _globals['_ENCODERREQUEST']._serialized_start=41
-  _globals['_ENCODERREQUEST']._serialized_end=74
-  _globals['_ENCODERRESPONSE']._serialized_start=76
-  _globals['_ENCODERRESPONSE']._serialized_end=110
-  _globals['_DECODERRESPONSE']._serialized_start=113
-  _globals['_DECODERRESPONSE']._serialized_end=431
-  _globals['_DECODERRESPONSE_DECODERENTRY']._serialized_start=321
-  _globals['_DECODERRESPONSE_DECODERENTRY']._serialized_end=367
-  _globals['_DECODERRESPONSE_PROMPTSENTRY']._serialized_start=369
-  _globals['_DECODERRESPONSE_PROMPTSENTRY']._serialized_end=431
-  _globals['_PROMPTS']._serialized_start=433
-  _globals['_PROMPTS']._serialized_end=473
-  _globals['_PROMPT']._serialized_start=475
-  _globals['_PROMPT']._serialized_end=542
-  _globals['_PREDICTREQUEST']._serialized_start=544
-  _globals['_PREDICTREQUEST']._serialized_end=668
-  _globals['_PREDICTRESPONSE']._serialized_start=670
-  _globals['_PREDICTRESPONSE']._serialized_end=757
-  _globals['_PREDICTDETAIL']._serialized_start=760
-  _globals['_PREDICTDETAIL']._serialized_end=895
-  _globals['_PREDICTDETAIL_CANDIDATEENTRY']._serialized_start=847
-  _globals['_PREDICTDETAIL_CANDIDATEENTRY']._serialized_end=895
-  _globals['_CONFIGRESPONSE']._serialized_start=898
-  _globals['_CONFIGRESPONSE']._serialized_end=1078
-  _globals['_STRATEGY']._serialized_start=1080
-  _globals['_STRATEGY']._serialized_end=1118
-  _globals['_STRATEGIES']._serialized_start=1121
-  _globals['_STRATEGIES']._serialized_end=1256
-  _globals['_STRATEGIES_STRATEGIESENTRY']._serialized_start=1190
-  _globals['_STRATEGIES_STRATEGIESENTRY']._serialized_end=1256
-  _globals['_MODEL']._serialized_start=1259
-  _globals['_MODEL']._serialized_end=1581
+  _globals['_ENCODERREQUEST']._serialized_end=93
+  _globals['_ENCODERRESPONSE']._serialized_start=95
+  _globals['_ENCODERRESPONSE']._serialized_end=129
+  _globals['_TOKENINFO']._serialized_start=131
+  _globals['_TOKENINFO']._serialized_end=204
+  _globals['_DECODERRESPONSE']._serialized_start=207
+  _globals['_DECODERRESPONSE']._serialized_end=380
+  _globals['_DECODERRESPONSE_PROMPTSENTRY']._serialized_start=318
+  _globals['_DECODERRESPONSE_PROMPTSENTRY']._serialized_end=380
+  _globals['_PROMPTS']._serialized_start=382
+  _globals['_PROMPTS']._serialized_end=422
+  _globals['_PROMPT']._serialized_start=424
+  _globals['_PROMPT']._serialized_end=491
+  _globals['_PREDICTREQUEST']._serialized_start=493
+  _globals['_PREDICTREQUEST']._serialized_end=617
+  _globals['_PREDICTRESPONSE']._serialized_start=619
+  _globals['_PREDICTRESPONSE']._serialized_end=706
+  _globals['_PREDICTDETAIL']._serialized_start=709
+  _globals['_PREDICTDETAIL']._serialized_end=844
+  _globals['_PREDICTDETAIL_CANDIDATEENTRY']._serialized_start=796
+  _globals['_PREDICTDETAIL_CANDIDATEENTRY']._serialized_end=844
+  _globals['_MODELCONFIG']._serialized_start=846
+  _globals['_MODELCONFIG']._serialized_end=898
+  _globals['_MACHINECONFIG']._serialized_start=900
+  _globals['_MACHINECONFIG']._serialized_end=969
+  _globals['_CONFIGRESPONSE']._serialized_start=971
+  _globals['_CONFIGRESPONSE']._serialized_end=1098
+  _globals['_STRATEGY']._serialized_start=1100
+  _globals['_STRATEGY']._serialized_end=1138
+  _globals['_STRATEGIES']._serialized_start=1141
+  _globals['_STRATEGIES']._serialized_end=1276
+  _globals['_STRATEGIES_STRATEGIESENTRY']._serialized_start=1210
+  _globals['_STRATEGIES_STRATEGIESENTRY']._serialized_end=1276
+  _globals['_MODEL']._serialized_start=1279
+  _globals['_MODEL']._serialized_end=1601
 # @@protoc_insertion_point(module_scope)

@@ -155,6 +155,13 @@ private:
 
     void start();
 
+public:
+    void InterruptByMe() {
+        // Yocto : stop old infer
+        printf("\n InterruptByMe \n");
+        batch_.finish_old_infer();
+    }
+
 private:
     friend class EuropaBatch<T>;
 
@@ -165,7 +172,7 @@ private:
     const size_t vocab_size_;
     size_t       vocab_size_padded_;
     float        rmsnorm_eps_ = 1e-6f;
-
+    
     static constexpr bool neox_rotary_style_ = false;
 
     const int    start_id_;

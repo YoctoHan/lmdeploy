@@ -10,10 +10,12 @@ class Empty(_message.Message):
     def __init__(self) -> None: ...
 
 class EncoderRequest(_message.Message):
-    __slots__ = ["context"]
+    __slots__ = ["context", "is_prefix"]
     CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    IS_PREFIX_FIELD_NUMBER: _ClassVar[int]
     context: str
-    def __init__(self, context: _Optional[str] = ...) -> None: ...
+    is_prefix: bool
+    def __init__(self, context: _Optional[str] = ..., is_prefix: bool = ...) -> None: ...
 
 class EncoderResponse(_message.Message):
     __slots__ = ["outputs"]
@@ -21,15 +23,20 @@ class EncoderResponse(_message.Message):
     outputs: _containers.RepeatedScalarFieldContainer[int]
     def __init__(self, outputs: _Optional[_Iterable[int]] = ...) -> None: ...
 
+class TokenInfo(_message.Message):
+    __slots__ = ["value", "context", "type", "id_end"]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    ID_END_FIELD_NUMBER: _ClassVar[int]
+    value: int
+    context: bytes
+    type: str
+    id_end: bool
+    def __init__(self, value: _Optional[int] = ..., context: _Optional[bytes] = ..., type: _Optional[str] = ..., id_end: bool = ...) -> None: ...
+
 class DecoderResponse(_message.Message):
-    __slots__ = ["decoder", "special_tokens", "bos_token", "eos_token", "unk_token", "prompts"]
-    class DecoderEntry(_message.Message):
-        __slots__ = ["key", "value"]
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: int
-        value: str
-        def __init__(self, key: _Optional[int] = ..., value: _Optional[str] = ...) -> None: ...
+    __slots__ = ["token_info", "prompts"]
     class PromptsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -37,19 +44,11 @@ class DecoderResponse(_message.Message):
         key: str
         value: Prompts
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Prompts, _Mapping]] = ...) -> None: ...
-    DECODER_FIELD_NUMBER: _ClassVar[int]
-    SPECIAL_TOKENS_FIELD_NUMBER: _ClassVar[int]
-    BOS_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    EOS_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    UNK_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_INFO_FIELD_NUMBER: _ClassVar[int]
     PROMPTS_FIELD_NUMBER: _ClassVar[int]
-    decoder: _containers.ScalarMap[int, str]
-    special_tokens: _containers.RepeatedScalarFieldContainer[str]
-    bos_token: str
-    eos_token: str
-    unk_token: str
+    token_info: _containers.RepeatedCompositeFieldContainer[TokenInfo]
     prompts: _containers.MessageMap[str, Prompts]
-    def __init__(self, decoder: _Optional[_Mapping[int, str]] = ..., special_tokens: _Optional[_Iterable[str]] = ..., bos_token: _Optional[str] = ..., eos_token: _Optional[str] = ..., unk_token: _Optional[str] = ..., prompts: _Optional[_Mapping[str, Prompts]] = ...) -> None: ...
+    def __init__(self, token_info: _Optional[_Iterable[_Union[TokenInfo, _Mapping]]] = ..., prompts: _Optional[_Mapping[str, Prompts]] = ...) -> None: ...
 
 class Prompts(_message.Message):
     __slots__ = ["prompt"]
@@ -108,21 +107,33 @@ class PredictDetail(_message.Message):
     candidate: _containers.ScalarMap[int, float]
     def __init__(self, prob: _Optional[float] = ..., candidate: _Optional[_Mapping[int, float]] = ...) -> None: ...
 
-class ConfigResponse(_message.Message):
-    __slots__ = ["is_instruct_model", "is_less_content_token", "is_has_not_file_path", "is_post_after_code", "connected_cnt", "checkpoint_hash"]
-    IS_INSTRUCT_MODEL_FIELD_NUMBER: _ClassVar[int]
-    IS_LESS_CONTENT_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    IS_HAS_NOT_FILE_PATH_FIELD_NUMBER: _ClassVar[int]
-    IS_POST_AFTER_CODE_FIELD_NUMBER: _ClassVar[int]
-    CONNECTED_CNT_FIELD_NUMBER: _ClassVar[int]
+class ModelConfig(_message.Message):
+    __slots__ = ["name", "checkpoint_hash"]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_HASH_FIELD_NUMBER: _ClassVar[int]
-    is_instruct_model: bool
-    is_less_content_token: bool
-    is_has_not_file_path: bool
-    is_post_after_code: bool
-    connected_cnt: int
+    name: str
     checkpoint_hash: str
-    def __init__(self, is_instruct_model: bool = ..., is_less_content_token: bool = ..., is_has_not_file_path: bool = ..., is_post_after_code: bool = ..., connected_cnt: _Optional[int] = ..., checkpoint_hash: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., checkpoint_hash: _Optional[str] = ...) -> None: ...
+
+class MachineConfig(_message.Message):
+    __slots__ = ["gpu_name", "gpu_cnt", "is_ampere"]
+    GPU_NAME_FIELD_NUMBER: _ClassVar[int]
+    GPU_CNT_FIELD_NUMBER: _ClassVar[int]
+    IS_AMPERE_FIELD_NUMBER: _ClassVar[int]
+    gpu_name: str
+    gpu_cnt: int
+    is_ampere: bool
+    def __init__(self, gpu_name: _Optional[str] = ..., gpu_cnt: _Optional[int] = ..., is_ampere: bool = ...) -> None: ...
+
+class ConfigResponse(_message.Message):
+    __slots__ = ["model_config", "machine_config", "connected_cnt"]
+    MODEL_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    CONNECTED_CNT_FIELD_NUMBER: _ClassVar[int]
+    model_config: ModelConfig
+    machine_config: MachineConfig
+    connected_cnt: int
+    def __init__(self, model_config: _Optional[_Union[ModelConfig, _Mapping]] = ..., machine_config: _Optional[_Union[MachineConfig, _Mapping]] = ..., connected_cnt: _Optional[int] = ...) -> None: ...
 
 class Strategy(_message.Message):
     __slots__ = ["type", "args"]

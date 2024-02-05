@@ -335,7 +335,14 @@ PYBIND11_MODULE(_turbomind, m)
             },
             "callback"_a,
             "context"_a = nullptr)
-        .def("unregister_callback", &AbstractTransformerModelInstance::unRegisterCallback);
+        .def("unregister_callback", &AbstractTransformerModelInstance::unRegisterCallback)
+        .def(
+            "invoke_interupt",
+            [](AbstractTransformerModelInstance* model) { 
+                // printf("=============\n");
+              return model->invokeInterupt();
+            },
+            py::call_guard<py::gil_scoped_release>());
 
     // transformer model
     py::class_<AbstractTransformerModel, std::shared_ptr<AbstractTransformerModel>>(m, "AbstractTransformerModel")

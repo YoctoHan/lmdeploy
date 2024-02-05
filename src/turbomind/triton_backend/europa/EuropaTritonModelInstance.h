@@ -29,7 +29,7 @@ namespace ft = turbomind;
 
 template<typename T>
 struct EuropaTritonSharedModelInstance {
-    std::unique_ptr<ft::Europa<T>>                          europa;
+    std::unique_ptr<ft::Europa<T>>                          europa;  // shared_state_
     std::shared_ptr<ft::EuropaWeight<T>>                    europa_weight;
     std::unique_ptr<ft::Allocator<ft::AllocatorType::CUDA>> allocator;
     std::unique_ptr<ft::cublasAlgoMap>                      cublas_algo_map;
@@ -48,6 +48,13 @@ struct EuropaTritonModelInstance: AbstractTransformerModelInstance {
 
     std::shared_ptr<std::vector<triton::Tensor>>
     forward(std::shared_ptr<std::vector<triton::Tensor>> input_tensors) override;
+
+    bool invokeInterupt() override {
+        instance_->europa->InterruptByMe();
+        // printf("333333333333\n");
+        // exit(0);
+        return false;
+    }
 
     std::shared_ptr<std::unordered_map<std::string, triton::Tensor>>
     forward(std::shared_ptr<std::unordered_map<std::string, triton::Tensor>> input_tensors) override;

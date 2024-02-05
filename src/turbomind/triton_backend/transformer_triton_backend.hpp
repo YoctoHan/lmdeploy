@@ -283,6 +283,11 @@ struct AbstractTransformerModelInstance {
         return forward(input_tensors);
     }
 
+
+    virtual bool invokeInterupt() {
+        return false;
+    }
+
     void registerCallback(triton_stream_cb_t cb, void* ctx)
     {
         stream_cb_  = cb;

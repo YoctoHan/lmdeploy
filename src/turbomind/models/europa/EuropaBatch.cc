@@ -19,7 +19,7 @@ namespace turbomind {
 
 template<typename T>
 void EuropaBatch<T>::verifyRequests(std::vector<std::shared_ptr<Request>>& stop_reqs,
-                                   std::vector<std::shared_ptr<Request>>& infer_reqs)
+                                    std::vector<std::shared_ptr<Request>>& infer_reqs)
 {
     std::unordered_map<uint64_t, int> occurrence;
 
@@ -975,9 +975,10 @@ void EuropaBatch<T>::finish()
     }
 
     for (int i = 0; i < batch_size_; ++i) {
-        if (h_finished_buf_[i]) {
+        if (h_finished_buf_[i] || new_request.load()) {
             finishRequest(i, false);
             ++finished_count_;
+            new_request.store(false);
         }
     }
 }

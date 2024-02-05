@@ -11,7 +11,7 @@ from typing import List
 from concurrent.futures import ThreadPoolExecutor
 from protobufs import model_pb2_grpc
 from protobufs import model_pb2
-from lmdeploy.turbomind.model import Model
+from lmdeploy.turbomind.model import Model, ModelBase
 from lmdeploy.model import MODELS
 
 @dataclasses.dataclass
@@ -50,13 +50,14 @@ def get_gen_param(cap,
 
 
 class ModelServicer(model_pb2_grpc.ModelServicer):
-    def __init__(self, model: Model):
-        self.model = model
+    def __init__(self, model: ModelBase):
+        self.created_just_now: bool = False
+        self.model: ModelBase = model
         self.com_len: int = 0
         self.prediction_tokens: List[int] = []
         self.sampling_type: str = ""
         self.id: str = ""
-        self.beam_width: int = 1
+        self.beam_width: int = 0
         self.connected_cnt: int = 0
         self.strategy_ids: List[int] = []
         self.debug: bool = False
@@ -72,35 +73,14 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         self.current_thread = None
         self.stop_event = threading.Event()
         self.iterator = None
+        
+        self.request = [0 for _ in range(256)]
 
     def Encoder(self, req, context):
-        return model_pb2.EncoderResponse(outputs=self.model.encode(context=req.context))
+        return model_pb2.EncoderResponse(outputs=self.model.encode(context=req.context, is_prefix=req.is_prefix))
 
     def Decoder(self, req, context):
-        encoder = self.model.encoder()
-        special_tokens = self.model.special_tokens()
-        prompts = self.model.prompts()
-        try:
-            tmp = model_pb2.DecoderResponse()
-            for k in encoder:
-                v = encoder[k]
-                assert v not in tmp.decoder
-                tmp.decoder[v] = k
-            for v in special_tokens:
-                assert v in encoder
-                tmp.special_tokens.append(v)
-            tmp.bos_token = self.model.bos_token()
-            tmp.eos_token = self.model.eos_token()
-            tmp.unk_token = self.model.unk_token()
-            assert tmp.bos_token in encoder
-            assert tmp.eos_token in encoder
-            assert tmp.unk_token in encoder
-            for k in prompts:
-                tmp.prompts[k].CopyFrom(prompts[k])
-        except Exception as e:
-            traceback.print_exc(file=sys.stderr)
-            raise e
-        return tmp
+        return model_pb2.DecoderResponse(token_info=self.model.token_info(), prompts=self.model.prompts())
 
     def IteratorWorker(self):
         if os.getenv('AIXCODER_DEBUG') == 'ON':
@@ -121,6 +101,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
             print("[AIXCODER_DEBUG]Stop iteration, session id = {}.".format(self.create_id))
             
         self.result_queue.put(None)  # Indicate the generator is finished
+        self.request[self.create_id] = 0
 
     def ClearQueue(self):
         # Stop previous generator thread if it exists
@@ -136,13 +117,15 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
                 while True:
                     self.result_queue.get_nowait()
             except queue.Empty:
-                pass # 队列现在是空的
+                pass
         
         # Clear the event for the new thread
         self.stop_event.clear()
 
     def CreatePrediction(self, req, context):
         self.create_id += 1
+        self.request[self.create_id % 256] = 1
+        
         self.prediction_tokens: List[int] = req.tokens
         self.sampling_type: str = req.sampling_type
         self.id: str = req.id
@@ -157,7 +140,7 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         nth_round = 1
         step = 0
         seed = random.getrandbits(64)
-        model_name = self.model.get_model_name()
+        model_name = self.model.name()
         sampling_param = MODELS.get(model_name)(capability=cap).sampling_param
         
         gen_param = get_gen_param(cap, sampling_param, nth_round,
@@ -168,6 +151,10 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
             print("[AIXCODER_DEBUG]Input tokens:", req.tokens)
             
         self.ClearQueue()
+        # import pdb;pdb.set_trace()
+        if self.request[self.create_id - 1]:
+            self.generator.interuption()
+            self.request[self.create_id - 1] = 0
             
         self.iterator = self.generator.stream_infer(
                 session_id=self.create_id,
@@ -177,8 +164,8 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
                 ignore_eos=False,
                 random_seed=seed if nth_round == 1 else None)
         
-        iterator_thread = threading.Thread(target=self.IteratorWorker)
-        iterator_thread.start()
+        self.current_thread = threading.Thread(target=self.IteratorWorker)
+        self.current_thread.start()
         
         print(f"create id={self.create_id}, len={len(req.tokens)}, com_len={self.com_len}, debug={req.debug}",
               flush=True, file=sys.stderr)
@@ -220,16 +207,22 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
             out = res
         return model_pb2.PredictResponse(out=out, detail=details, debug_out=debug_str)
 
+
     def Config(self, req, context):
-        self.connected_cnt+=1
-        print("code=5"+self.model.checkpoint_hash(), flush=True, file=sys.stderr)
-        return model_pb2.ConfigResponse(is_instruct_model=self.model.is_instruct_model(),
-                                        is_post_after_code=self.model.is_post_after_code(),
-                                        is_less_content_token=self.model.is_less_content_token(),
-                                        is_has_not_file_path=self.model.is_has_not_file_path(),
-                                        checkpoint_hash="5"+self.model.checkpoint_hash(),
-                                        connected_cnt=self.connected_cnt,
-                                        )
+        self.connected_cnt += 1
+        print("code=E" + self.model.checkpoint_hash(), flush=True, file=sys.stderr)
+        return model_pb2.ConfigResponse(
+            model_config=model_pb2.ModelConfig(
+                name=self.model.name(),
+                checkpoint_hash="E" + self.model.checkpoint_hash(),
+            ),
+            machine_config=model_pb2.MachineConfig(
+                gpu_name="",  # todo
+                gpu_cnt=1,  # todo
+                is_ampere=self.model.is_ampere(),
+            ),
+            connected_cnt=self.connected_cnt,
+        )
 
     def Init(self, req, context):
         # self.model.init_strategies(strategies=req)
@@ -241,4 +234,5 @@ class ModelServicer(model_pb2_grpc.ModelServicer):
         server.add_insecure_port('[::]:' + str(port))
         server.start()
         server.wait_for_termination()
+
 

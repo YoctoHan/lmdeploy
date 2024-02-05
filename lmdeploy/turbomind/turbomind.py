@@ -230,6 +230,9 @@ class TurboMindInstance:
             # Allow the pipeline add new requests into the queue.
             await asyncio.sleep(0)
             yield output
+    
+    def interuption(self):
+        self.model_insts[0].invoke_interupt()
 
     def stream_infer(self,
                      session_id,

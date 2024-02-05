@@ -7,6 +7,7 @@
 #include "src/turbomind/models/llama/Request.h"
 #include "src/turbomind/utils/allocator.h"
 #include "src/turbomind/utils/cublasMMWrapper.h"
+#include <atomic>
 
 namespace turbomind {
 
@@ -64,7 +65,13 @@ public:
         freeBuffer();
     }
 
+    void
+    finish_old_infer() {
+        new_request.store(true);
+    }
+
 private:
+    std::atomic<bool> new_request{false};
     const int  max_batch_size_;
     const int  max_context_token_num_;
     const int  session_len_;

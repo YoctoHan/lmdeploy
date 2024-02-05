@@ -5,81 +5,95 @@ option go_package = "/model";
 package model;
 
 service Model {
-  rpc Encoder(EncoderRequest) returns (EncoderResponse) {}
-  rpc Decoder(Empty) returns (DecoderResponse) {}
-  rpc CreatePrediction(PredictRequest) returns (Empty) {}
-  rpc GetResult(Empty) returns (PredictResponse) {}
-  rpc Config(Empty) returns (ConfigResponse) {}
-  rpc Init(Strategies) returns (Empty) {}
+    rpc Encoder (EncoderRequest) returns (EncoderResponse) {}
+    rpc Decoder (Empty) returns (DecoderResponse) {}
+    rpc CreatePrediction (PredictRequest) returns (Empty) {}
+    rpc GetResult (Empty) returns (PredictResponse) {}
+    rpc Config (Empty) returns (ConfigResponse) {}
+    rpc Init (Strategies) returns (Empty) {}
 }
 
 message Empty {}
 
 message EncoderRequest {
-  string context = 1;
+    string context = 1;
+    bool is_prefix = 2;
 }
 
 message EncoderResponse {
-  repeated int64 outputs = 1;
+    repeated int64 outputs = 1;
+}
+
+message TokenInfo {
+    int64 value = 1;
+    bytes context = 2;
+    string type = 3;
+    bool id_end = 4;
 }
 
 message DecoderResponse {
-  map<int64, string> decoder = 1;
-  repeated string special_tokens = 2;
-  string bos_token = 3;
-  string eos_token = 4;
-  string unk_token = 5;
-  map<string, Prompts> prompts = 6;
+    repeated TokenInfo token_info = 1;
+    map<string, Prompts> prompts = 2;
 }
 
 message Prompts {
-  repeated Prompt prompt = 1;
+    repeated Prompt prompt = 1;
 }
 
 message Prompt {
-  string file_path = 1;
-  string code_string = 2;
-  string signature = 3;
+    string file_path = 1;
+    string code_string = 2;
+    string signature = 3;
 }
 
 message PredictRequest {
-  repeated int64 tokens = 1;
-  string id = 2;
-  string sampling_type = 3;
-  int64 beam_width = 4;
-  repeated int64 strategy_ids = 5; // list of strategy ids, eval by order
-  bool debug = 6;
+    repeated int64 tokens = 1;
+    string id = 2;
+    string sampling_type = 3;
+    int64 beam_width = 4;
+    // list of strategy ids, eval by order
+    repeated int64 strategy_ids = 5;
+    bool debug = 6;
 }
 
 message PredictResponse {
-  repeated int64 out = 1;
-  repeated PredictDetail detail = 2;
-  string debug_out = 3;
+    repeated int64 out = 1;
+    repeated PredictDetail detail = 2;
+    string debug_out = 3;
 }
 
 message PredictDetail {
-  double prob = 1;
-  map<int64, double> candidate = 2;
+    double prob = 1;
+    map<int64, double> candidate = 2;
+}
+
+message ModelConfig {
+    string name = 1;
+    string checkpoint_hash = 2;
+}
+
+message MachineConfig {
+    string gpu_name = 1;
+    int64 gpu_cnt = 2;
+    bool is_ampere = 3;
 }
 
 message ConfigResponse {
-  bool is_instruct_model = 1;
-  bool is_less_content_token = 2;
-  bool is_has_not_file_path = 3;
-  bool is_post_after_code = 4;
-  int64 connected_cnt = 5;
-  string checkpoint_hash = 6;
+    ModelConfig model_config = 1;
+    MachineConfig machine_config = 2;
+    int64 connected_cnt = 3;
 }
 
 message Strategy {
-  int64 type = 1;
-  // type 0: notUsed, args: null
-  // type 1: Penalization, args: StrategyArgsForPunishTokens
-  // type 2: End of Statement Preference, args: null
-  // type 3: Probability L1 Normalization, args: null
-  bytes args = 2;
+    int64 type = 1;
+    // type 0: notUsed, args: null
+    // type 1: Penalization, args: StrategyArgsForPunishTokens
+    // type 2: End of Statement Preference, args: null
+    // type 3: Probability L1 Normalization, args: null
+    bytes args = 2;
 }
 
 message Strategies {
-  map<int64, Strategy> strategies = 1; // map strategy id to strategy
+    // map strategy id to strategy
+    map<int64, Strategy> strategies = 1;
 }

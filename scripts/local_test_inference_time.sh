@@ -12,14 +12,10 @@ cd "$target_directory" || exit
 WORK_DIR="/data/yocto_bak/lmdeploy"
 BUILD_DIR="build"
 PYTHON_MODULE="lmdeploy.turbomind.server_europa"
-# PYTHON_MODULE="lmdeploy.turbomind.chat_star_coder"
-# STAR_CODER_WORKSPACE="./star_coder_workspace/"
-# VOCAB_DIR="/data3/StarCoderBase/"
 STAR_CODER_WORKSPACE="./europa_workspace/"
 VOCAB_DIR="/data3/aix2_base_v2/"
 IS_INSTRUCT_MODEL="False"
 ATTENTION_HEAD_TYPE="groupedquery"
-PORT="12316"
 
 cd $WORK_DIR
 
@@ -44,12 +40,11 @@ fi
 
 cd -
 
-python -m $PYTHON_MODULE main \
+python -m $PYTHON_MODULE test_inference_time \
                          --model_dir=${STAR_CODER_WORKSPACE} \
                          --vocab_dir=${VOCAB_DIR} \
                          --is_instruct_model=${IS_INSTRUCT_MODEL} \
-                         --attention_head_type=${ATTENTION_HEAD_TYPE} \
-                         --port=${PORT}
+                         --attention_head_type=${ATTENTION_HEAD_TYPE}
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to run python module $PYTHON_MODULE"
